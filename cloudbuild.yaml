@@ -25,3 +25,6 @@ steps:
 
 images:
   - 'gcr.io/$PROJECT_ID/block-management:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
