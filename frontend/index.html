@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Management — Service Charges</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a18; --ink-2: #4a4a44; --ink-3: #8a8a80;
+    --paper: #f7f5f0; --paper-2: #edeae2; --paper-3: #e0ddd4;
+    --accent: #2d5a3d; --accent-2: #4a8a5d; --accent-light: #e8f2ec;
+    --warn: #8a4a1a; --warn-light: #fdf0e6;
+    --danger: #8a1a1a; --danger-light: #fdeaea;
+    --border: rgba(26,26,24,0.12); --border-strong: rgba(26,26,24,0.25);
+    --fund-sc: #1a3d5a; --fund-sc-light: #e8f0f7;
+    --fund-rf: #3d2a5a; --fund-rf-light: #f0ecf7;
+    --radius: 6px; --radius-lg: 12px;
+  }
+
+  body { font-family: 'DM Mono', monospace; background: var(--paper); color: var(--ink); min-height: 100vh; font-size: 13px; line-height: 1.6; }
+
+  .shell { display: flex; min-height: 100vh; }
+
+  nav { width: 220px; flex-shrink: 0; background: var(--ink); color: var(--paper); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .nav-brand { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .nav-brand h1 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 300; color: var(--paper); letter-spacing: 0.01em; line-height: 1.3; }
+  .nav-brand p { font-size: 10px; color: rgba(247,245,240,0.4); margin-top: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .nav-items { padding: 12px 0; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; color: rgba(247,245,240,0.55); font-size: 12px; letter-spacing: 0.02em; transition: all 0.15s; border-left: 2px solid transparent; }
+  .nav-item:hover { color: var(--paper); background: rgba(255,255,255,0.05); }
+  .nav-item.active { color: var(--paper); border-left-color: #7ab892; background: rgba(255,255,255,0.07); }
+  .nav-icon { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.7; }
+  .nav-year { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(247,245,240,0.35); }
+  .year-select { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 12px; padding: 5px 8px; width: 100%; margin-top: 6px; cursor: pointer; outline: none; }
+
+  main { flex: 1; overflow: auto; }
+  .page { display: none; padding: 32px 36px; max-width: 1100px; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+  .page-header h2 { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 300; }
+  .page-header p { color: var(--ink-3); font-size: 12px; margin-top: 4px; }
+
+  .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; }
+  .card-title { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .stat-label { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+  .stat-value { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 300; line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+  .stat-card.sc { border-top: 3px solid var(--fund-sc); }
+  .stat-card.rf { border-top: 3px solid var(--fund-rf); }
+
+  .fund-pill { display: inline-block; font-size: 10px; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .fund-pill.sc { background: var(--fund-sc-light); color: var(--fund-sc); }
+  .fund-pill.rf { background: var(--fund-rf-light); color: var(--fund-rf); }
+
+  .progress-wrap { margin-top: 8px; }
+  .progress-track { background: var(--paper-2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .progress-fill.ok { background: var(--accent-2); }
+  .progress-fill.warn { background: #c87941; }
+  .progress-fill.over { background: var(--danger); }
+  .progress-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-3); margin-top: 4px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .fund-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; }
+  .fund-card.sc { border-top: 3px solid var(--fund-sc); }
+  .fund-card.rf { border-top: 3px solid var(--fund-rf); }
+  .fund-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .fund-name { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 300; }
+  .fund-row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--paper-2); font-size: 12px; }
+  .fund-row:last-child { border-bottom: none; }
+  .fund-row .label { color: var(--ink-2); }
+  .fund-row .value { font-weight: 500; }
+  .fund-row .value.positive { color: var(--accent); }
+  .fund-row .value.negative { color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 400; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--paper-2); color: var(--ink-2); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--paper); }
+  th:last-child, td:last-child { text-align: right; }
+  .mono { font-family: 'DM Mono', monospace; }
+
+  .badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.03em; }
+  .badge.paid { background: var(--accent-light); color: var(--accent); }
+  .badge.unpaid { background: var(--danger-light); color: var(--danger); }
+  .badge.partial { background: var(--warn-light); color: var(--warn); }
+  .badge.sc { background: var(--fund-sc-light); color: var(--fund-sc); }
+  .badge.rf { background: var(--fund-rf-light); color: var(--fund-rf); }
+
+  .btn { font-family: 'DM Mono', monospace; font-size: 12px; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; border: 1px solid var(--border-strong); background: #fff; color: var(--ink); transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--paper-2); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { background: var(--accent-2); }
+  .btn.small { font-size: 11px; padding: 5px 10px; }
+  .btn.danger { color: var(--danger); border-color: rgba(138,26,26,0.3); }
+  .btn.danger:hover { background: var(--danger-light); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .form-input { width: 100%; font-family: 'DM Mono', monospace; font-size: 13px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: #fff; color: var(--ink); outline: none; transition: border-color 0.15s; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8a80'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(26,26,24,0.5); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: var(--radius-lg); padding: 28px 32px; width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .modal-title { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 300; }
+  .modal-close { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--ink-3); line-height: 1; padding: 0; }
+  .modal-footer { margin-top: 22px; display: flex; gap: 10px; justify-content: flex-end; }
+
+  .tabs { display: flex; gap: 2px; background: var(--paper-2); border-radius: var(--radius); padding: 3px; margin-bottom: 22px; width: fit-content; }
+  .tab { padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--ink-3); transition: all 0.15s; }
+  .tab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  .alert { border-radius: var(--radius); padding: 12px 16px; font-size: 12px; margin-bottom: 20px; }
+  .alert.info { background: var(--fund-sc-light); color: var(--fund-sc); border: 1px solid rgba(26,61,90,0.15); }
+
+  .action-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .empty { text-align: center; padding: 48px 24px; color: var(--ink-3); }
+  .empty p { margin-top: 8px; font-size: 12px; }
+
+  .recon-header { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .recon-line { display: flex; justify-content: space-between; padding: 7px 0; font-size: 12px; border-bottom: 1px solid var(--paper-2); }
+  .recon-line:last-child { border-bottom: none; }
+  .recon-line.total { font-weight: 500; background: var(--paper); margin: 4px -4px; padding: 8px 4px; border-radius: var(--radius); border-bottom: none; }
+  .recon-line.surplus { color: var(--accent); }
+  .recon-line.deficit { color: var(--danger); }
+
+  .share-sum { font-size: 11px; padding: 8px 12px; background: var(--paper); border-radius: var(--radius); display: flex; justify-content: space-between; gap: 16px; }
+  .share-sum.valid { color: var(--accent); }
+  .share-sum.invalid { color: var(--danger); }
+  .hint { font-size: 11px; color: var(--ink-3); }
+
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+  .spinner.dark { border-color: var(--border); border-top-color: var(--accent); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: var(--radius); font-size: 12px; z-index: 200; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--danger); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav>
+  <div class="nav-brand">
+    <h1>Block Management</h1>
+    <p>Service charges</p>
+  </div>
+  <div class="nav-items">
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('budget')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12V4a2 2 0 012-2h8a2 2 0 012 2v8"/><path d="M1 12h14"/><path d="M6 8h4M8 6v4"/></svg>
+      Budget
+    </div>
+    <div class="nav-item" onclick="showPage('expenditure')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/></svg>
+      Expenditure
+    </div>
+    <div class="nav-item" onclick="showPage('leaseholders')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="3"/><path d="M1 14s1-4 5-4 5 4 5 4"/><path d="M13 7l2 2-3 3"/></svg>
+      Leaseholders
+    </div>
+    <div class="nav-item" onclick="showPage('charges')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M6 9h1M9 9h1"/></svg>
+      Charge schedule
+    </div>
+    <div class="nav-item" onclick="showPage('reconciliation')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/><circle cx="8" cy="8" r="6"/></svg>
+      Year-end recon
+    </div>
+  </div>
+  <div class="nav-year">
+    <div>Financial year</div>
+    <select class="year-select" id="yearSelect" onchange="changeYear(this.value)">
+      <option value="2024">2024/25</option>
+      <option value="2025" selected>2025/26</option>
+      <option value="2026">2026/27</option>
+    </select>
+  </div>
+</nav>
+
+<main>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="page-header">
+    <h2>Dashboard</h2>
+    <p id="dash-subtitle">Financial year 2025/26 overview</p>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card sc"><div class="stat-label">SC fund budget</div><div class="stat-value" id="stat-sc-budget">—</div><div class="stat-sub">Annual budget set</div></div>
+    <div class="stat-card sc"><div class="stat-label">SC spent to date</div><div class="stat-value" id="stat-sc-spent">—</div><div class="stat-sub" id="stat-sc-pct">of budget</div></div>
+    <div class="stat-card rf"><div class="stat-label">Reserve fund budget</div><div class="stat-value" id="stat-rf-budget">—</div><div class="stat-sub">Annual contributions</div></div>
+    <div class="stat-card rf"><div class="stat-label">Reserve fund balance</div><div class="stat-value" id="stat-rf-balance">—</div><div class="stat-sub">Cumulative balance</div></div>
+  </div>
+  <div class="two-col">
+    <div class="fund-card sc">
+      <div class="fund-heading"><div class="fund-name">Service charge fund</div><span class="fund-pill sc">SC</span></div>
+      <div class="fund-row"><span class="label">Annual budget</span><span class="value mono" id="fc-sc-budget">£0</span></div>
+      <div class="fund-row"><span class="label">Total collected</span><span class="value mono positive" id="fc-sc-collected">£0</span></div>
+      <div class="fund-row"><span class="label">Total spent</span><span class="value mono" id="fc-sc-spent">£0</span></div>
+      <div class="fund-row"><span class="label">Remaining</span><span class="value mono" id="fc-sc-remaining">£0</span></div>
+      <div class="progress-wrap" style="margin-top:14px">
+        <div class="progress-track"><div class="progress-fill ok" id="prog-sc" style="width:0%"></div></div>
+        <div class="progress-labels"><span>Spent</span><span id="prog-sc-lbl">0% of budget</span></div>
+      </div>
+    </div>
+    <div class="fund-card rf">
+      <div class="fund-heading"><div class="fund-name">Reserve fund</div><span class="fund-pill rf">RF</span></div>
+      <div class="fund-row"><span class="label">Annual contribution</span><span class="value mono" id="fc-rf-budget">£0</span></div>
+      <div class="fund-row"><span class="label">Contributions collected</span><span class="value mono positive" id="fc-rf-collected">£0</span></div>
+      <div class="fund-row"><span class="label">RF expenditure</span><span class="value mono" id="fc-rf-spent">£0</span></div>
+      <div class="fund-row"><span class="label">Cumulative balance</span><span class="value mono positive" id="fc-rf-balance">£0</span></div>
+      <div class="progress-wrap" style="margin-top:14px">
+        <div class="progress-track"><div class="progress-fill ok" id="prog-rf" style="width:0%"></div></div>
+        <div class="progress-labels"><span>Collected vs target</span><span id="prog-rf-lbl">0%</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Recent expenditure</div>
+    <table><thead><tr><th>Date</th><th>Description</th><th>Fund</th><th>Category</th><th>Amount</th></tr></thead>
+    <tbody id="recent-exp-body"><tr><td colspan="5" style="text-align:center;color:var(--ink-3);padding:24px">No expenditure logged yet</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- BUDGET -->
+<div class="page" id="page-budget">
+  <div class="page-header"><h2>Budget</h2><p>Set annual budgets and contribution targets for each fund</p></div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Service charge fund</div>
+      <div class="form-group"><label class="form-label">Annual SC budget (£)</label><input class="form-input" type="number" id="sc-budget-input" placeholder="e.g. 24000"></div>
+      <div class="form-group"><label class="form-label">Budget notes</label><textarea class="form-input" rows="3" id="sc-budget-notes" placeholder="e.g. Includes planned gutter works..." style="resize:vertical"></textarea></div>
+      <div class="form-group">
+        <label class="form-label">Budget categories</label>
+        <div id="sc-cats-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px"><input class="form-input" type="text" id="new-sc-cat" placeholder="Add category..." style="flex:1"><button class="btn small" onclick="addCategory('sc')">Add</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Reserve fund</div>
+      <div class="form-group"><label class="form-label">Annual RF contribution target (£)</label><input class="form-input" type="number" id="rf-budget-input" placeholder="e.g. 6000"></div>
+      <div class="form-group"><label class="form-label">Budget notes</label><textarea class="form-input" rows="3" id="rf-budget-notes" placeholder="e.g. Building up for roof works..." style="resize:vertical"></textarea></div>
+      <div class="form-group">
+        <label class="form-label">Budget categories</label>
+        <div id="rf-cats-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px"><input class="form-input" type="text" id="new-rf-cat" placeholder="Add category..." style="flex:1"><button class="btn small" onclick="addCategory('rf')">Add</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Billing schedule</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Billing frequency</label>
+        <select class="form-input form-select" id="billing-freq">
+          <option value="annual">Annual (one payment)</option>
+          <option value="halfyearly">Half-yearly (2 payments)</option>
+          <option value="quarterly">Quarterly (4 payments)</option>
+          <option value="monthly">Monthly (12 payments)</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">First payment due date</label><input class="form-input" type="date" id="billing-date"></div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:4px">
+    <button class="btn primary" onclick="saveBudget()" id="save-budget-btn">Save budget</button>
+  </div>
+</div>
+
+<!-- EXPENDITURE -->
+<div class="page" id="page-expenditure">
+  <div class="page-header"><h2>Expenditure</h2><p>Log and track all costs against the budget</p></div>
+  <div class="action-bar">
+    <div class="tabs">
+      <div class="tab active" onclick="filterExp('all',this)">All</div>
+      <div class="tab" onclick="filterExp('sc',this)">SC fund</div>
+      <div class="tab" onclick="filterExp('rf',this)">Reserve fund</div>
+    </div>
+    <button class="btn primary" onclick="openModal('exp-modal')">+ Log expenditure</button>
+  </div>
+  <div class="card">
+    <table><thead><tr><th>Date</th><th>Description</th><th>Fund</th><th>Category</th><th>Supplier / ref</th><th>Amount</th><th></th></tr></thead>
+    <tbody id="exp-table-body"><tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- LEASEHOLDERS -->
+<div class="page" id="page-leaseholders">
+  <div class="page-header"><h2>Leaseholders</h2><p>Manage leaseholder details and service charge shares. Shares must total 100%.</p></div>
+  <div class="action-bar">
+    <div class="share-sum" id="share-sum-display"><span>Total shares:</span><span id="share-total">0.00%</span></div>
+    <button class="btn primary" onclick="openLHModal()">+ Add leaseholder</button>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <table><thead><tr><th>Flat</th><th>Name</th><th>Email</th><th>SC share %</th><th>RF share %</th><th>SC charge</th><th>RF charge</th><th></th></tr></thead>
+    <tbody id="lh-table-body"><tr><td colspan="8" class="empty"><p>No leaseholders added yet.</p></td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- CHARGE SCHEDULE -->
+<div class="page" id="page-charges">
+  <div class="page-header"><h2>Charge schedule</h2><p>Individual charges and payment status for each leaseholder</p></div>
+  <div class="action-bar">
+    <div class="tabs">
+      <div class="tab active" onclick="filterCharges('all',this)">All</div>
+      <div class="tab" onclick="filterCharges('unpaid',this)">Unpaid</div>
+      <div class="tab" onclick="filterCharges('paid',this)">Paid</div>
+    </div>
+    <div class="hint" id="charges-collected-hint"></div>
+  </div>
+  <div class="card">
+    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC charge</th><th>RF charge</th><th>Total</th><th>SC status</th><th>RF status</th><th></th></tr></thead>
+    <tbody id="charges-table-body"><tr><td colspan="8" class="empty"><p>Add leaseholders and set a budget to generate the charge schedule.</p></td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- YEAR-END RECONCILIATION -->
+<div class="page" id="page-reconciliation">
+  <div class="page-header"><h2>Year-end reconciliation</h2><p>Summary for leaseholder accounts and Companies House filing</p></div>
+  <div class="two-col">
+    <div class="card">
+      <div class="recon-header">Service charge fund</div>
+      <div class="recon-line"><span>Charges raised</span><span class="mono" id="r-sc-raised">£0.00</span></div>
+      <div class="recon-line"><span>Charges collected</span><span class="mono" id="r-sc-collected">£0.00</span></div>
+      <div class="recon-line"><span>Total expenditure</span><span class="mono" id="r-sc-spent">£0.00</span></div>
+      <div class="recon-line total"><span>Surplus / (deficit)</span><span class="mono" id="r-sc-surplus">£0.00</span></div>
+      <div class="recon-header" style="margin-top:16px">By category</div>
+      <div id="r-sc-cats"></div>
+    </div>
+    <div class="card">
+      <div class="recon-header">Reserve fund</div>
+      <div class="recon-line"><span>Contributions raised</span><span class="mono" id="r-rf-raised">£0.00</span></div>
+      <div class="recon-line"><span>Contributions collected</span><span class="mono" id="r-rf-collected">£0.00</span></div>
+      <div class="recon-line"><span>RF expenditure</span><span class="mono" id="r-rf-spent">£0.00</span></div>
+      <div class="recon-line total"><span>Closing balance</span><span class="mono" id="r-rf-closing">£0.00</span></div>
+      <div class="recon-header" style="margin-top:16px">Notes</div>
+      <p class="hint" id="r-rf-notes">No notes set.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Leaseholder statements</div>
+    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC raised</th><th>SC paid</th><th>RF raised</th><th>RF paid</th><th>Outstanding</th></tr></thead>
+    <tbody id="r-lh-table"></tbody></table>
+  </div>
+  <div style="margin-top:16px"><button class="btn" onclick="window.print()">Print / save PDF</button></div>
+</div>
+
+</main>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="exp-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Log expenditure</div><button class="modal-close" onclick="closeModal('exp-modal')">×</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="exp-date"></div>
+      <div class="form-group"><label class="form-label">Fund</label>
+        <select class="form-input form-select" id="exp-fund" onchange="updateExpCats()">
+          <option value="sc">Service charge (SC)</option>
+          <option value="rf">Reserve fund (RF)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><input class="form-input" type="text" id="exp-desc" placeholder="e.g. Annual buildings insurance"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Category</label><select class="form-input form-select" id="exp-cat"></select></div>
+      <div class="form-group"><label class="form-label">Amount (£)</label><input class="form-input" type="number" step="0.01" id="exp-amount" placeholder="0.00"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Supplier / reference</label><input class="form-input" type="text" id="exp-supplier" placeholder="e.g. ABC Contractors, Inv #1234"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('exp-modal')">Cancel</button>
+      <button class="btn primary" id="exp-save-btn" onclick="saveExpenditure()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="lh-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="lh-modal-title">Add leaseholder</div><button class="modal-close" onclick="closeModal('lh-modal')">×</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Flat / unit</label><input class="form-input" type="text" id="lh-flat" placeholder="e.g. Flat 3"></div>
+      <div class="form-group"><label class="form-label">Leaseholder name</label><input class="form-input" type="text" id="lh-name" placeholder="Full name"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email address</label><input class="form-input" type="email" id="lh-email" placeholder="email@example.com"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">SC share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="lh-sc-share" placeholder="e.g. 8.33"></div>
+      <div class="form-group"><label class="form-label">RF share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="lh-rf-share" placeholder="e.g. 8.33"></div>
+    </div>
+    <div class="alert info" style="font-size:11px;padding:10px 14px">Tip: for 12 equal shares, enter 8.33 for each leaseholder.</div>
+    <input type="hidden" id="lh-edit-id">
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('lh-modal')">Cancel</button>
+      <button class="btn primary" id="lh-save-btn" onclick="saveLeaseholder()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal" style="width:380px">
+    <div class="modal-header"><div class="modal-title">Update payment</div><button class="modal-close" onclick="closeModal('pay-modal')">×</button></div>
+    <div class="form-group"><label class="form-label">Leaseholder</label><div id="pay-lh-name" style="font-size:14px;padding:4px 0"></div></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">SC payment status</label>
+        <select class="form-input form-select" id="pay-sc-status"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">RF payment status</label>
+        <select class="form-input form-select" id="pay-rf-status"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+      </div>
+    </div>
+    <input type="hidden" id="pay-lh-id">
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('pay-modal')">Cancel</button>
+      <button class="btn primary" id="pay-save-btn" onclick="savePayment()">Update</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let year = '2025';
+let budget = { sc: 0, rf: 0, sc_notes: '', rf_notes: '', billing_freq: 'annual', due_date: '', sc_categories: ['Insurance','Repairs','Cleaning','Utilities','Management','Other'], rf_categories: ['Major works','Contingency','Other'] };
+let leaseholders = [];
+let expenditure = [];
+let payments = {};
+let expFilter = 'all';
+let chargeFilter = 'all';
+
+async function api(method, path, body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (!res.ok) { const err = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(err.detail || 'Request failed'); }
+  return res.json();
+}
+
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => el.className = 'toast', 2500);
+}
+
+function fmt(n) { return '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtK(n) { n = Number(n || 0); if (Math.abs(n) >= 1000) return '£' + (n / 1000).toFixed(1) + 'k'; return fmt(n); }
+
+async function loadAll() {
+  try {
+    [budget, leaseholders, expenditure, payments] = await Promise.all([
+      api('GET', `/api/${year}/budget`),
+      api('GET', `/api/${year}/leaseholders/`),
+      api('GET', `/api/${year}/expenditure`),
+      api('GET', `/api/${year}/payments`),
+    ]);
+    renderDashboard();
+  } catch (e) { toast('Failed to load data: ' + e.message, true); }
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(ni => { if (ni.getAttribute('onclick') && ni.getAttribute('onclick').includes("'" + id + "'")) ni.classList.add('active'); });
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'budget') loadBudgetForm();
+  if (id === 'expenditure') renderExpTable();
+  if (id === 'leaseholders') renderLHTable();
+  if (id === 'charges') renderCharges();
+  if (id === 'reconciliation') renderRecon();
+}
+
+async function changeYear(y) { year = y; await loadAll(); showPage('dashboard'); }
+
+function renderDashboard() {
+  document.getElementById('dash-subtitle').textContent = 'Financial year ' + year + '/' + (parseInt(year) + 1).toString().slice(2);
+  const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
+  const scSpent = expenditure.filter(e => e.fund === 'sc').reduce((a, e) => a + Number(e.amount), 0);
+  const rfSpent = expenditure.filter(e => e.fund === 'rf').reduce((a, e) => a + Number(e.amount), 0);
+  let scColl = 0, rfColl = 0;
+  leaseholders.forEach(lh => {
+    const p = payments[lh.id] || {};
+    const sc = scB * (Number(lh.sc_share) || 0) / 100, rf = rfB * (Number(lh.rf_share) || 0) / 100;
+    if (p.sc_status === 'paid') scColl += sc; else if (p.sc_status === 'partial') scColl += sc * 0.5;
+    if (p.rf_status === 'paid') rfColl += rf; else if (p.rf_status === 'partial') rfColl += rf * 0.5;
+  });
+  const scPct = scB > 0 ? Math.round(scSpent / scB * 100) : 0;
+  const rfPct = rfB > 0 ? Math.min(Math.round(rfColl / rfB * 100), 100) : 0;
+  document.getElementById('stat-sc-budget').textContent = fmtK(scB);
+  document.getElementById('stat-sc-spent').textContent = fmtK(scSpent);
+  document.getElementById('stat-sc-pct').textContent = scPct + '% of budget used';
+  document.getElementById('stat-rf-budget').textContent = fmtK(rfB);
+  document.getElementById('stat-rf-balance').textContent = fmtK(rfColl - rfSpent);
+  document.getElementById('fc-sc-budget').textContent = fmt(scB);
+  document.getElementById('fc-sc-collected').textContent = fmt(scColl);
+  document.getElementById('fc-sc-spent').textContent = fmt(scSpent);
+  const rem = scColl - scSpent;
+  const remEl = document.getElementById('fc-sc-remaining');
+  remEl.textContent = fmt(rem); remEl.className = 'value mono ' + (rem >= 0 ? 'positive' : 'negative');
+  document.getElementById('fc-rf-budget').textContent = fmt(rfB);
+  document.getElementById('fc-rf-collected').textContent = fmt(rfColl);
+  document.getElementById('fc-rf-spent').textContent = fmt(rfSpent);
+  document.getElementById('fc-rf-balance').textContent = fmt(rfColl - rfSpent);
+  const sp = document.getElementById('prog-sc');
+  sp.style.width = Math.min(scPct, 100) + '%';
+  sp.className = 'progress-fill ' + (scPct > 100 ? 'over' : scPct > 85 ? 'warn' : 'ok');
+  document.getElementById('prog-sc-lbl').textContent = scPct + '% of budget';
+  document.getElementById('prog-rf').style.width = rfPct + '%';
+  document.getElementById('prog-rf-lbl').textContent = rfPct + '% collected';
+  const recent = [...expenditure].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  document.getElementById('recent-exp-body').innerHTML = recent.length === 0
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--ink-3);padding:24px">No expenditure logged yet</td></tr>'
+    : recent.map(e => `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td class="mono">${fmt(e.amount)}</td></tr>`).join('');
+}
+
+function loadBudgetForm() {
+  document.getElementById('sc-budget-input').value = budget.sc || '';
+  document.getElementById('rf-budget-input').value = budget.rf || '';
+  document.getElementById('sc-budget-notes').value = budget.sc_notes || '';
+  document.getElementById('rf-budget-notes').value = budget.rf_notes || '';
+  document.getElementById('billing-freq').value = budget.billing_freq || 'annual';
+  document.getElementById('billing-date').value = budget.due_date || '';
+  renderCatsList('sc'); renderCatsList('rf');
+}
+
+async function saveBudget() {
+  const btn = document.getElementById('save-budget-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...';
+  try {
+    budget.sc = Number(document.getElementById('sc-budget-input').value) || 0;
+    budget.rf = Number(document.getElementById('rf-budget-input').value) || 0;
+    budget.sc_notes = document.getElementById('sc-budget-notes').value;
+    budget.rf_notes = document.getElementById('rf-budget-notes').value;
+    budget.billing_freq = document.getElementById('billing-freq').value;
+    budget.due_date = document.getElementById('billing-date').value;
+    await api('PUT', `/api/${year}/budget`, budget);
+    toast('Budget saved');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save budget';
+}
+
+function addCategory(fund) {
+  const inp = document.getElementById('new-' + fund + '-cat');
+  const val = inp.value.trim(); if (!val) return;
+  const key = fund === 'sc' ? 'sc_categories' : 'rf_categories';
+  if (!budget[key].includes(val)) budget[key].push(val);
+  inp.value = ''; renderCatsList(fund);
+}
+
+function removeCategory(fund, cat) {
+  const key = fund === 'sc' ? 'sc_categories' : 'rf_categories';
+  budget[key] = budget[key].filter(c => c !== cat); renderCatsList(fund);
+}
+
+function renderCatsList(fund) {
+  const key = fund === 'sc' ? 'sc_categories' : 'rf_categories';
+  document.getElementById(fund + '-cats-list').innerHTML = (budget[key] || []).map(c =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--paper-2);border-radius:20px;padding:2px 10px;font-size:11px">${c}<button onclick="removeCategory('${fund}','${c}')" style="background:none;border:none;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1;padding:0 2px">×</button></span>`
+  ).join('');
+}
+
+function filterExp(f, el) {
+  expFilter = f;
+  document.querySelectorAll('#page-expenditure .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active'); renderExpTable();
+}
+
+function renderExpTable() {
+  let exps = [...expenditure].sort((a, b) => b.date.localeCompare(a.date));
+  if (expFilter !== 'all') exps = exps.filter(e => e.fund === expFilter);
+  document.getElementById('exp-table-body').innerHTML = exps.length === 0
+    ? '<tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr>'
+    : exps.map(e => `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td style="color:var(--ink-3)">${e.supplier || '—'}</td><td class="mono">${fmt(e.amount)}</td><td><button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`).join('');
+}
+
+function updateExpCats() {
+  const fund = document.getElementById('exp-fund').value;
+  const cats = fund === 'sc' ? (budget.sc_categories || []) : (budget.rf_categories || []);
+  document.getElementById('exp-cat').innerHTML = cats.map(c => `<option>${c}</option>`).join('') || '<option>Uncategorised</option>';
+}
+
+async function saveExpenditure() {
+  const btn = document.getElementById('exp-save-btn');
+  const exp = { date: document.getElementById('exp-date').value, fund: document.getElementById('exp-fund').value, description: document.getElementById('exp-desc').value, category: document.getElementById('exp-cat').value, amount: Number(document.getElementById('exp-amount').value) || 0, supplier: document.getElementById('exp-supplier').value };
+  if (!exp.date || !exp.description || !exp.amount) { toast('Please fill in date, description and amount.', true); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const saved = await api('POST', `/api/${year}/expenditure`, exp);
+    expenditure.unshift(saved); closeModal('exp-modal'); renderExpTable(); renderDashboard(); toast('Expenditure saved');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+async function deleteExp(id) {
+  if (!confirm('Delete this expense?')) return;
+  try { await api('DELETE', `/api/${year}/expenditure/${id}`); expenditure = expenditure.filter(e => e.id !== id); renderExpTable(); renderDashboard(); toast('Deleted'); }
+  catch (e) { toast('Failed: ' + e.message, true); }
+}
+
+function renderLHTable() {
+  const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
+  document.getElementById('lh-table-body').innerHTML = leaseholders.length === 0
+    ? '<tr><td colspan="8" class="empty"><p>No leaseholders added yet.</p></td></tr>'
+    : leaseholders.map(lh => `<tr><td>${lh.flat}</td><td>${lh.name}</td><td style="color:var(--ink-3)">${lh.email || '—'}</td><td class="mono">${Number(lh.sc_share || 0).toFixed(2)}%</td><td class="mono">${Number(lh.rf_share || 0).toFixed(2)}%</td><td class="mono">${fmt(scB * (Number(lh.sc_share) || 0) / 100)}</td><td class="mono">${fmt(rfB * (Number(lh.rf_share) || 0) / 100)}</td><td style="display:flex;gap:6px"><button class="btn small" onclick="editLH('${lh.id}')">Edit</button><button class="btn small danger" onclick="deleteLH('${lh.id}')">Delete</button></td></tr>`).join('');
+  const total = leaseholders.reduce((a, lh) => a + Number(lh.sc_share || 0), 0);
+  document.getElementById('share-total').textContent = total.toFixed(2) + '%';
+  document.getElementById('share-sum-display').className = 'share-sum ' + (Math.abs(total - 100) < 0.1 ? 'valid' : 'invalid');
+}
+
+function openLHModal() {
+  document.getElementById('lh-modal-title').textContent = 'Add leaseholder';
+  ['lh-flat','lh-name','lh-email','lh-sc-share','lh-rf-share','lh-edit-id'].forEach(id => document.getElementById(id).value = '');
+  openModal('lh-modal');
+}
+
+function editLH(id) {
+  const lh = leaseholders.find(l => l.id === id); if (!lh) return;
+  document.getElementById('lh-modal-title').textContent = 'Edit leaseholder';
+  document.getElementById('lh-flat').value = lh.flat;
+  document.getElementById('lh-name').value = lh.name;
+  document.getElementById('lh-email').value = lh.email || '';
+  document.getElementById('lh-sc-share').value = lh.sc_share;
+  document.getElementById('lh-rf-share').value = lh.rf_share;
+  document.getElementById('lh-edit-id').value = lh.id;
+  openModal('lh-modal');
+}
+
+async function saveLeaseholder() {
+  const btn = document.getElementById('lh-save-btn');
+  const editId = document.getElementById('lh-edit-id').value;
+  const lh = { flat: document.getElementById('lh-flat').value, name: document.getElementById('lh-name').value, email: document.getElementById('lh-email').value, sc_share: Number(document.getElementById('lh-sc-share').value) || 0, rf_share: Number(document.getElementById('lh-rf-share').value) || 0 };
+  if (!lh.flat || !lh.name) { toast('Please enter flat and name.', true); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    if (editId) {
+      const u = await api('PUT', `/api/${year}/leaseholders/${editId}`, lh);
+      const idx = leaseholders.findIndex(l => l.id === editId);
+      if (idx >= 0) leaseholders[idx] = u;
+    } else {
+      leaseholders.push(await api('POST', `/api/${year}/leaseholders/`, lh));
+    }
+    closeModal('lh-modal'); renderLHTable(); toast('Leaseholder saved');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+async function deleteLH(id) {
+  if (!confirm('Delete this leaseholder?')) return;
+  try { await api('DELETE', `/api/${year}/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); toast('Deleted'); }
+  catch (e) { toast('Failed: ' + e.message, true); }
+}
+
+function filterCharges(f, el) {
+  chargeFilter = f;
+  document.querySelectorAll('#page-charges .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active'); renderCharges();
+}
+
+function renderCharges() {
+  const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
+  let lhs = leaseholders;
+  if (chargeFilter === 'unpaid') lhs = lhs.filter(lh => { const p = payments[lh.id] || {}; return p.sc_status !== 'paid' || p.rf_status !== 'paid'; });
+  if (chargeFilter === 'paid') lhs = lhs.filter(lh => { const p = payments[lh.id] || {}; return p.sc_status === 'paid' && p.rf_status === 'paid'; });
+  document.getElementById('charges-table-body').innerHTML = lhs.length === 0
+    ? '<tr><td colspan="8" class="empty"><p>No charges to display.</p></td></tr>'
+    : lhs.map(lh => { const sc = scB * (Number(lh.sc_share) || 0) / 100, rf = rfB * (Number(lh.rf_share) || 0) / 100, p = payments[lh.id] || {}; return `<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(rf)}</td><td class="mono" style="font-weight:500">${fmt(sc+rf)}</td><td><span class="badge ${p.sc_status||'unpaid'}">${p.sc_status||'unpaid'}</span></td><td><span class="badge ${p.rf_status||'unpaid'}">${p.rf_status||'unpaid'}</span></td><td><button class="btn small" onclick="openPayModal('${lh.id}')">Update</button></td></tr>`; }).join('');
+  let scC=0,rfC=0,scT=0,rfT=0;
+  leaseholders.forEach(lh => { const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100; scT+=sc;rfT+=rf; if(p.sc_status==='paid')scC+=sc;else if(p.sc_status==='partial')scC+=sc*0.5; if(p.rf_status==='paid')rfC+=rf;else if(p.rf_status==='partial')rfC+=rf*0.5; });
+  document.getElementById('charges-collected-hint').textContent = `SC collected: ${fmt(scC)} of ${fmt(scT)} · RF collected: ${fmt(rfC)} of ${fmt(rfT)}`;
+}
+
+function openPayModal(lhId) {
+  const lh = leaseholders.find(l => l.id === lhId); if (!lh) return;
+  const p = payments[lhId] || {};
+  document.getElementById('pay-lh-name').textContent = lh.flat + ' — ' + lh.name;
+  document.getElementById('pay-lh-id').value = lhId;
+  document.getElementById('pay-sc-status').value = p.sc_status || 'unpaid';
+  document.getElementById('pay-rf-status').value = p.rf_status || 'unpaid';
+  openModal('pay-modal');
+}
+
+async function savePayment() {
+  const btn = document.getElementById('pay-save-btn');
+  const id = document.getElementById('pay-lh-id').value;
+  const data = { leaseholder_id: id, sc_status: document.getElementById('pay-sc-status').value, rf_status: document.getElementById('pay-rf-status').value };
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try { await api('PUT', `/api/${year}/payments/${id}`, data); payments[id] = data; closeModal('pay-modal'); renderCharges(); renderDashboard(); toast('Payment updated'); }
+  catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Update';
+}
+
+function renderRecon() {
+  const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
+  const scSpent = expenditure.filter(e=>e.fund==='sc').reduce((a,e)=>a+Number(e.amount),0);
+  const rfSpent = expenditure.filter(e=>e.fund==='rf').reduce((a,e)=>a+Number(e.amount),0);
+  let scC=0,rfC=0,scR=0,rfR=0;
+  leaseholders.forEach(lh=>{const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100;scR+=sc;rfR+=rf;if(p.sc_status==='paid')scC+=sc;else if(p.sc_status==='partial')scC+=sc*0.5;if(p.rf_status==='paid')rfC+=rf;else if(p.rf_status==='partial')rfC+=rf*0.5;});
+  const surplus = scC - scSpent;
+  document.getElementById('r-sc-raised').textContent = fmt(scR);
+  document.getElementById('r-sc-collected').textContent = fmt(scC);
+  document.getElementById('r-sc-spent').textContent = fmt(scSpent);
+  const sEl = document.getElementById('r-sc-surplus'); sEl.textContent = fmt(surplus); sEl.parentElement.className = 'recon-line total ' + (surplus >= 0 ? 'surplus' : 'deficit');
+  document.getElementById('r-rf-raised').textContent = fmt(rfR);
+  document.getElementById('r-rf-collected').textContent = fmt(rfC);
+  document.getElementById('r-rf-spent').textContent = fmt(rfSpent);
+  document.getElementById('r-rf-closing').textContent = fmt(rfC - rfSpent);
+  document.getElementById('r-rf-notes').textContent = budget.rf_notes || 'No notes set.';
+  document.getElementById('r-sc-cats').innerHTML = (budget.sc_categories||[]).map(cat=>{const s=expenditure.filter(e=>e.fund==='sc'&&e.category===cat).reduce((a,e)=>a+Number(e.amount),0);return`<div class="recon-line"><span>${cat}</span><span class="mono">${fmt(s)}</span></div>`;}).join('')||'<div class="recon-line" style="color:var(--ink-3)">No categories set</div>';
+  document.getElementById('r-lh-table').innerHTML = leaseholders.length===0
+    ?'<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No leaseholders added.</td></tr>'
+    :leaseholders.map(lh=>{const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100,scP=p.sc_status==='paid'?sc:p.sc_status==='partial'?sc*0.5:0,rfP=p.rf_status==='paid'?rf:p.rf_status==='partial'?rf*0.5:0,out=(sc-scP)+(rf-rfP);return`<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;}).join('');
+}
+
+function openModal(id) {
+  if (id === 'exp-modal') { document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; updateExpCats(); }
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }); });
+
+loadAll();
+</script>
+</body>
+</html>
