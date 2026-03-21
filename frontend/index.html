@@ -671,7 +671,7 @@ function renderExpTable() {
   if (expFilter !== 'all') exps = exps.filter(e => e.fund === expFilter);
   document.getElementById('exp-table-body').innerHTML = exps.length === 0
     ? '<tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr>'
-    : exps.map(e => `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td style="color:var(--ink-3)">${e.supplier || '—'}</td><td class="mono">${fmt(e.amount)}</td><td style="display:flex;gap:6px;justify-content:flex-end">${e.invoice_gcs_path ? `<a href="#" onclick="viewInvoice('${e.id}');return false;" class="btn small">Invoice</a>` : ''}<button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`).join('');
+    : exps.map(e => { const sup = e.supplier ? (e.supplier.startsWith('http') ? `<a href="${e.supplier}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">${e.supplier}</a>` : `<span style="color:var(--ink-3)">${e.supplier}</span>`) : '<span style="color:var(--ink-3)">—</span>'; return `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td>${sup}</td><td class="mono">${fmt(e.amount)}</td><td style="display:flex;gap:6px;justify-content:flex-end">${e.invoice_gcs_path ? `<a href="#" onclick="viewInvoice('${e.id}');return false;" class="btn small">Invoice</a>` : ''}<button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`; }).join('');
 }
 
 function updateExpCats() {
