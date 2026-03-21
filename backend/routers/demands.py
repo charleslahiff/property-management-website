@@ -253,30 +253,27 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     pdf.ln(4)
 
     # ── Charge table ──────────────────────────────────────────────
-    col = [95, 30, 35]  # description, share, amount
+    col = [125, 35]  # description, amount
     pdf.set_fill_color(240, 240, 238)
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(col[0], 8, "Charge", border=1, fill=True)
-    pdf.cell(col[1], 8, "Share", border=1, fill=True, align="C")
-    pdf.cell(col[2], 8, "Amount", border=1, fill=True, align="R")
+    pdf.cell(col[1], 8, "Amount", border=1, fill=True, align="R")
     pdf.ln()
 
     pdf.set_font("Helvetica", "", 10)
     if sc_budget > 0:
         pdf.cell(col[0], 8, f"Service charge ({date_range})", border=1)
-        pdf.cell(col[1], 8, f"{sc_share:g}%", border=1, align="C")
-        pdf.cell(col[2], 8, _fmt_money(sc_amount), border=1, align="R")
+        pdf.cell(col[1], 8, _fmt_money(sc_amount), border=1, align="R")
         pdf.ln()
     if rf_budget > 0:
         pdf.cell(col[0], 8, f"Reserve fund contribution ({date_range})", border=1)
-        pdf.cell(col[1], 8, f"{rf_share:g}%", border=1, align="C")
-        pdf.cell(col[2], 8, _fmt_money(rf_amount), border=1, align="R")
+        pdf.cell(col[1], 8, _fmt_money(rf_amount), border=1, align="R")
         pdf.ln()
 
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_fill_color(240, 240, 238)
-    pdf.cell(col[0] + col[1], 8, "Total payable", border=1, fill=True)
-    pdf.cell(col[2], 8, _fmt_money(total), border=1, fill=True, align="R")
+    pdf.cell(col[0], 8, "Total payable", border=1, fill=True)
+    pdf.cell(col[1], 8, _fmt_money(total), border=1, fill=True, align="R")
     pdf.ln()
     pdf.ln(6)
 
