@@ -236,7 +236,7 @@
     </div>
   </div>
   <div class="card" id="chart-section" style="margin-bottom:24px">
-    <div class="card-title">Cumulative balance over time</div>
+    <div class="card-title">Account balance over time</div>
     <div class="two-col" style="gap:24px;margin-top:4px">
       <div>
         <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--fund-sc);margin-bottom:10px">Service charge fund</div>
@@ -576,22 +576,21 @@ function renderCharts() {
     const spendEvents = expenditure.filter(e => e.fund === fund).map(e => ({ date: e.date, amount: Number(e.amount) }));
     const allDates = [...new Set([...incomeEvents.map(e => e.date), ...spendEvents.map(e => e.date)])].sort();
     let cumIncome = 0, cumSpend = 0;
-    const incomeData = [], spendData = [];
+    const balanceData = [];
     allDates.forEach(date => {
       cumIncome += incomeEvents.filter(e => e.date === date).reduce((a, e) => a + e.amount, 0);
       cumSpend += spendEvents.filter(e => e.date === date).reduce((a, e) => a + e.amount, 0);
-      incomeData.push({ x: date, y: Math.round(cumIncome * 100) / 100 });
-      spendData.push({ x: date, y: Math.round(cumSpend * 100) / 100 });
+      balanceData.push({ x: date, y: Math.round((cumIncome - cumSpend) * 100) / 100 });
     });
     if (_charts[fund]) { _charts[fund].destroy(); delete _charts[fund]; }
     if (allDates.length === 0) return;
     const isSC = fund === 'sc';
+    const color = isSC ? '#1a3d5a' : '#3d2a5a';
     _charts[fund] = new Chart(document.getElementById('chart-' + fund), {
       type: 'line',
       data: {
         datasets: [
-          { label: 'Income received', data: incomeData, borderColor: isSC ? '#1a3d5a' : '#3d2a5a', backgroundColor: isSC ? 'rgba(26,61,90,0.07)' : 'rgba(61,42,90,0.07)', stepped: true, tension: 0, pointRadius: 4, fill: false },
-          { label: 'Expenditure', data: spendData, borderColor: '#8a1a1a', backgroundColor: 'rgba(138,26,26,0.07)', stepped: true, tension: 0, pointRadius: 4, fill: false, borderDash: [4, 3] }
+          { label: 'Balance', data: balanceData, borderColor: color, backgroundColor: isSC ? 'rgba(26,61,90,0.07)' : 'rgba(61,42,90,0.07)', stepped: true, tension: 0, pointRadius: 4, fill: true }
         ]
       },
       options: {
@@ -601,8 +600,8 @@ function renderCharts() {
           y: { grid: { color: 'rgba(26,26,24,0.06)' }, ticks: { font: { family: "'DM Mono', monospace", size: 11 }, color: '#8a8a80', callback: v => '£' + v.toLocaleString('en-GB') } }
         },
         plugins: {
-          legend: { labels: { font: { family: "'DM Mono', monospace", size: 11 }, color: '#4a4a44', boxWidth: 20 } },
-          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) } }
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => 'Balance: ' + fmt(ctx.parsed.y) } }
         }
       }
     });
