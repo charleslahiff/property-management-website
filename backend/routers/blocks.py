@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from backend.firestore import get_db
 from backend.models import Block
 import uuid
@@ -53,7 +53,7 @@ async def get_opening_arrears(block_id: str):
 
 
 @router.put("/{block_id}/opening_arrears")
-async def save_opening_arrears(block_id: str, data: dict):
+async def save_opening_arrears(block_id: str, data: dict = Body(...)):
     _col().document(block_id).update({"opening_arrears": data})
     return data
 

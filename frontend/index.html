@@ -761,7 +761,10 @@ async function loadBuilding() {
 }
 
 async function reloadArrears() {
-  arrears = year ? await api('GET', `${blockBase()}/arrears?exclude_year=${year}`) : [];
+  [arrears, openingArrears] = await Promise.all([
+    year ? api('GET', `${blockBase()}/arrears?exclude_year=${year}`) : Promise.resolve([]),
+    api('GET', `${blockBase()}/opening_arrears`),
+  ]);
 }
 
 async function loadYear() {
@@ -1235,7 +1238,7 @@ function renderCharges() {
       const btnDemand = `<button class="btn small" onclick="downloadDemand('${f.id}')">Demand</button>`;
       const pro = calcProration(f);
 
-      const oaActive = !openingArrears._year || openingArrears._year <= year;
+      const oaActive = openingArrears._year && openingArrears._year === year;
       const oa = oaActive ? (openingArrears[f.id] || {}) : {};
       const scBF = arrears.filter(a => a.flat_id === f.id).reduce((s,a) => s + a.sc_outstanding, 0) + Number(oa.sc || 0);
       const rfBF = arrears.filter(a => a.flat_id === f.id).reduce((s,a) => s + a.rf_outstanding, 0) + Number(oa.rf || 0);
@@ -1303,7 +1306,7 @@ function renderCharges() {
 
   // Prior year arrears — merge calculated (from tracked years) with manually-set opening arrears
   const allArrears = [...arrears];
-  const oaApplies = !openingArrears._year || openingArrears._year <= year;
+  const oaApplies = openingArrears._year && openingArrears._year === year;
   for (const [flatId, oa] of Object.entries(openingArrears || {}).filter(([k]) => k !== '_year')) {
     if (!oaApplies) break;
     const sc = Number(oa.sc || 0), rf = Number(oa.rf || 0);
@@ -1493,7 +1496,7 @@ function renderRecon() {
       const scP = income.filter(t=>t.type==='leaseholder'&&t.flat_id===flat.id&&t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
       const rfP = income.filter(t=>t.type==='leaseholder'&&t.flat_id===flat.id&&t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
       const out = (sc-scP)+(rf-rfP);
-      const oaActive = !openingArrears._year || openingArrears._year <= year;
+      const oaActive = openingArrears._year && openingArrears._year === year;
       const oa = oaActive ? (openingArrears[flat.id] || {}) : {};
       const priorArrears = arrears.filter(a=>a.flat_id===flat.id).reduce((s,a)=>s+a.sc_outstanding+a.rf_outstanding,0)
         + Number(oa.sc||0) + Number(oa.rf||0);
