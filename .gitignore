@@ -13,6 +13,9 @@ __pycache__/
 .venv/
 *.egg-info/
 
+# Claude
+plans/
+
 # OS
 .DS_Store
 Thumbs.db
