@@ -71,6 +71,11 @@ async def get_arrears(block_id: str, exclude_year: str = None):
     flat_docs = block_ref.collection("flats").stream()
     flats = {d.id: d.to_dict() for d in flat_docs}
 
+    # Load opening arrears (manual pre-system debts keyed by year)
+    block_doc = block_ref.get()
+    opening_arrears = block_doc.to_dict().get("opening_arrears", {}) if block_doc.exists else {}
+    oa_year = opening_arrears.get("_year")
+
     # Load all years
     year_docs = block_ref.collection("years").stream()
 
@@ -105,6 +110,11 @@ async def get_arrears(block_id: str, exclude_year: str = None):
             rf_share = float(flat.get("rf_share", 0))
             sc_owed = sc_budget * sc_share / 100
             rf_owed = rf_budget * rf_share / 100
+            # Include manual opening arrears in the year they were set
+            if oa_year == year_id:
+                oa_flat = opening_arrears.get(flat_id, {})
+                sc_owed += float(oa_flat.get("sc", 0))
+                rf_owed += float(oa_flat.get("rf", 0))
             sc_paid = income_by_flat.get(flat_id, {}).get("sc", 0.0)
             rf_paid = income_by_flat.get(flat_id, {}).get("rf", 0.0)
             sc_out = round(sc_owed - sc_paid, 2)
