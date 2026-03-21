@@ -10,6 +10,7 @@ class Leaseholder(BaseModel):
     email: Optional[str] = None
     sc_share: float = Field(ge=0, le=100)
     rf_share: float = Field(ge=0, le=100)
+    share_of_freehold: bool = False
 
 
 class Budget(BaseModel):
@@ -38,6 +39,8 @@ class Payment(BaseModel):
     leaseholder_id: str
     sc_status: str = "unpaid"  # "unpaid" | "partial" | "paid"
     rf_status: str = "unpaid"
+    sc_received_date: Optional[str] = None
+    rf_received_date: Optional[str] = None
 
 
 class InvoiceUploadResponse(BaseModel):
