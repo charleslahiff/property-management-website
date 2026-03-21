@@ -121,7 +121,7 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
 
     # ── Subject ───────────────────────────────────────────────────
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, f"SERVICE CHARGE DEMAND \u2014 {year_label}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"SERVICE CHARGE DEMAND - {year_label}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
     # ── Intro ─────────────────────────────────────────────────────
