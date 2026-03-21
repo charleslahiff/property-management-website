@@ -3,14 +3,19 @@ from typing import Optional
 from datetime import date
 
 
-class Leaseholder(BaseModel):
+class Flat(BaseModel):
     id: Optional[str] = None
-    flat: str
     name: str
-    email: Optional[str] = None
     sc_share: float = Field(ge=0, le=100)
     rf_share: float = Field(ge=0, le=100)
     share_of_freehold: bool = False
+
+
+class Leaseholder(BaseModel):
+    id: Optional[str] = None
+    flat_id: str
+    name: str
+    email: Optional[str] = None
     effective_date: Optional[str] = None
     expiry_date: Optional[str] = None
 
@@ -38,7 +43,7 @@ class Expenditure(BaseModel):
 
 
 class Payment(BaseModel):
-    leaseholder_id: str
+    flat_id: str
     sc_status: str = "unpaid"  # "unpaid" | "partial" | "paid"
     rf_status: str = "unpaid"
     sc_received_date: Optional[str] = None

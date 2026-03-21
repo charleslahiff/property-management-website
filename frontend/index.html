@@ -179,6 +179,10 @@
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/></svg>
       Expenditure
     </div>
+    <div class="nav-item" onclick="showPage('flats')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 15h14M3 15V7l5-5 5 5v8"/><path d="M6 15v-4h4v4"/></svg>
+      Flats
+    </div>
     <div class="nav-item" onclick="showPage('leaseholders')">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="3"/><path d="M1 14s1-4 5-4 5 4 5 4"/><path d="M13 7l2 2-3 3"/></svg>
       Leaseholders
@@ -322,16 +326,29 @@
   </div>
 </div>
 
+<!-- FLATS -->
+<div class="page" id="page-flats">
+  <div class="page-header"><h2>Flats</h2><p>Manage flat units and service charge shares. Shares must total 100%.</p></div>
+  <div class="action-bar">
+    <div class="share-sum" id="flat-share-sum-display"><span>Total shares:</span><span id="flat-share-total">0.00%</span></div>
+    <button class="btn primary" onclick="openFlatModal()">+ Add flat</button>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <table><thead><tr><th>Flat</th><th>SC share %</th><th>RF share %</th><th>SC charge</th><th>RF charge</th><th>SOF</th><th>Current leaseholder</th><th></th></tr></thead>
+    <tbody id="flat-table-body"><tr><td colspan="8" class="empty"><p>No flats added yet.</p></td></tr></tbody></table>
+  </div>
+</div>
+
 <!-- LEASEHOLDERS -->
 <div class="page" id="page-leaseholders">
-  <div class="page-header"><h2>Leaseholders</h2><p>Manage leaseholder details and service charge shares. Shares must total 100%.</p></div>
+  <div class="page-header"><h2>Leaseholders</h2><p>Manage leaseholders attached to each flat over time.</p></div>
   <div class="action-bar">
-    <div class="share-sum" id="share-sum-display"><span>Total shares:</span><span id="share-total">0.00%</span></div>
+    <div></div>
     <button class="btn primary" onclick="openLHModal()">+ Add leaseholder</button>
   </div>
   <div class="card" style="margin-top:16px">
-    <table><thead><tr><th>Flat</th><th>Name</th><th>Email</th><th>SC share %</th><th>RF share %</th><th>SC charge</th><th>RF charge</th><th>SOF</th><th></th></tr></thead>
-    <tbody id="lh-table-body"><tr><td colspan="9" class="empty"><p>No leaseholders added yet.</p></td></tr></tbody></table>
+    <table><thead><tr><th>Flat</th><th>Name</th><th>Email</th><th>Effective</th><th>Expiry</th><th></th></tr></thead>
+    <tbody id="lh-table-body"><tr><td colspan="6" class="empty"><p>No leaseholders added yet.</p></td></tr></tbody></table>
   </div>
 </div>
 
@@ -422,24 +439,13 @@
 <div class="modal-overlay" id="lh-modal">
   <div class="modal">
     <div class="modal-header"><div class="modal-title" id="lh-modal-title">Add leaseholder</div><button class="modal-close" onclick="closeModal('lh-modal')">×</button></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Flat / unit</label><input class="form-input" type="text" id="lh-flat" placeholder="e.g. Flat 3"></div>
-      <div class="form-group"><label class="form-label">Leaseholder name</label><input class="form-input" type="text" id="lh-name" placeholder="Full name"></div>
-    </div>
+    <div class="form-group"><label class="form-label">Flat</label><select class="form-input form-select" id="lh-flat-id"></select></div>
+    <div class="form-group"><label class="form-label">Leaseholder name</label><input class="form-input" type="text" id="lh-name" placeholder="Full name"></div>
     <div class="form-group"><label class="form-label">Email address</label><input class="form-input" type="email" id="lh-email" placeholder="email@example.com"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">SC share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="lh-sc-share" placeholder="e.g. 8.33"></div>
-      <div class="form-group"><label class="form-label">RF share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="lh-rf-share" placeholder="e.g. 8.33"></div>
-    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Effective date</label><input class="form-input" type="date" id="lh-effective-date"></div>
       <div class="form-group"><label class="form-label">Expiry date</label><input class="form-input" type="date" id="lh-expiry-date"></div>
     </div>
-    <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:4px">
-      <input type="checkbox" id="lh-sof" style="width:16px;height:16px;cursor:pointer">
-      <label class="form-label" style="margin:0;cursor:pointer" for="lh-sof">Share of freehold</label>
-    </div>
-    <div class="alert info" style="font-size:11px;padding:10px 14px">Tip: for 12 equal shares, enter 8.33 for each leaseholder.</div>
     <input type="hidden" id="lh-edit-id">
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('lh-modal')">Cancel</button>
@@ -448,10 +454,30 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="flat-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="flat-modal-title">Add flat</div><button class="modal-close" onclick="closeModal('flat-modal')">×</button></div>
+    <div class="form-group"><label class="form-label">Flat / unit name</label><input class="form-input" type="text" id="flat-name" placeholder="e.g. Flat 3"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">SC share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="flat-sc-share" placeholder="e.g. 8.33"></div>
+      <div class="form-group"><label class="form-label">RF share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="flat-rf-share" placeholder="e.g. 8.33"></div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:4px">
+      <input type="checkbox" id="flat-sof" style="width:16px;height:16px;cursor:pointer">
+      <label class="form-label" style="margin:0;cursor:pointer" for="flat-sof">Share of freehold</label>
+    </div>
+    <input type="hidden" id="flat-edit-id">
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('flat-modal')">Cancel</button>
+      <button class="btn primary" id="flat-save-btn" onclick="saveFlat()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="pay-modal">
   <div class="modal" style="width:380px">
     <div class="modal-header"><div class="modal-title">Update payment</div><button class="modal-close" onclick="closeModal('pay-modal')">×</button></div>
-    <div class="form-group"><label class="form-label">Leaseholder</label><div id="pay-lh-name" style="font-size:14px;padding:4px 0"></div></div>
+    <div class="form-group"><label class="form-label">Flat / Leaseholder</label><div id="pay-lh-name" style="font-size:14px;padding:4px 0"></div></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">SC payment status</label>
         <select class="form-input form-select" id="pay-sc-status"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
@@ -464,7 +490,7 @@
       <div class="form-group"><label class="form-label">SC received date</label><input class="form-input" type="date" id="pay-sc-date"></div>
       <div class="form-group"><label class="form-label">RF received date</label><input class="form-input" type="date" id="pay-rf-date"></div>
     </div>
-    <input type="hidden" id="pay-lh-id">
+    <input type="hidden" id="pay-flat-id">
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('pay-modal')">Cancel</button>
       <button class="btn primary" id="pay-save-btn" onclick="savePayment()">Update</button>
@@ -477,6 +503,7 @@
 <script>
 let year = '2025';
 let budget = { sc: 0, rf: 0, sc_notes: '', rf_notes: '', billing_freq: 'annual', due_date: '', sc_categories: ['Insurance','Repairs','Cleaning','Utilities','Management','Other'], rf_categories: ['Major works','Contingency','Other'] };
+let flats = [];
 let leaseholders = [];
 let expenditure = [];
 let payments = {};
@@ -500,12 +527,16 @@ function toast(msg, isError = false) {
 
 function fmt(n) { return '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtK(n) { n = Number(n || 0); if (Math.abs(n) >= 1000) return '£' + (n / 1000).toFixed(1) + 'k'; return fmt(n); }
-function sortByFlat(arr) { return [...arr].sort((a, b) => { const n = s => { const m = s.flat.match(/\d+/); return m ? parseInt(m[0]) : Infinity; }; const d = n(a) - n(b); return d !== 0 ? d : a.flat.localeCompare(b.flat); }); }
+function sortFlats(arr) { return [...arr].sort((a, b) => { const n = s => { const m = s.name.match(/\d+/); return m ? parseInt(m[0]) : Infinity; }; const d = n(a) - n(b); return d !== 0 ? d : a.name.localeCompare(b.name); }); }
+function activeLH(flatId) { const t = new Date().toISOString().slice(0,10); return leaseholders.filter(lh => lh.flat_id === flatId && (!lh.expiry_date || lh.expiry_date >= t)).sort((a,b) => (b.effective_date||'') > (a.effective_date||'') ? 1 : -1)[0] || null; }
+function effSC(p) { return Number(budget.sc||0) === 0 ? 'paid' : (p.sc_status||'unpaid'); }
+function effRF(p) { return Number(budget.rf||0) === 0 ? 'paid' : (p.rf_status||'unpaid'); }
 
 async function loadAll() {
   try {
-    [budget, leaseholders, expenditure, payments] = await Promise.all([
+    [budget, flats, leaseholders, expenditure, payments] = await Promise.all([
       api('GET', `/api/${year}/budget`),
+      api('GET', `/api/${year}/flats/`),
       api('GET', `/api/${year}/leaseholders/`),
       api('GET', `/api/${year}/expenditure`),
       api('GET', `/api/${year}/payments`),
@@ -522,6 +553,7 @@ function showPage(id) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'budget') loadBudgetForm();
   if (id === 'expenditure') renderExpTable();
+  if (id === 'flats') renderFlatsTable();
   if (id === 'leaseholders') renderLHTable();
   if (id === 'charges') renderCharges();
   if (id === 'reconciliation') renderRecon();
@@ -535,11 +567,11 @@ function renderDashboard() {
   const scSpent = expenditure.filter(e => e.fund === 'sc').reduce((a, e) => a + Number(e.amount), 0);
   const rfSpent = expenditure.filter(e => e.fund === 'rf').reduce((a, e) => a + Number(e.amount), 0);
   let scColl = 0, rfColl = 0;
-  leaseholders.forEach(lh => {
-    const p = payments[lh.id] || {};
-    const sc = scB * (Number(lh.sc_share) || 0) / 100, rf = rfB * (Number(lh.rf_share) || 0) / 100;
-    if (p.sc_status === 'paid') scColl += sc; else if (p.sc_status === 'partial') scColl += sc * 0.5;
-    if (p.rf_status === 'paid') rfColl += rf; else if (p.rf_status === 'partial') rfColl += rf * 0.5;
+  flats.forEach(flat => {
+    const p = payments[flat.id] || {};
+    const sc = scB * (Number(flat.sc_share) || 0) / 100, rf = rfB * (Number(flat.rf_share) || 0) / 100;
+    if (effSC(p) === 'paid') scColl += sc; else if (effSC(p) === 'partial') scColl += sc * 0.5;
+    if (effRF(p) === 'paid') rfColl += rf; else if (effRF(p) === 'partial') rfColl += rf * 0.5;
   });
   const scPct = scB > 0 ? Math.round(scSpent / scB * 100) : 0;
   const rfPct = rfB > 0 ? Math.min(Math.round(rfColl / rfB * 100), 100) : 0;
@@ -580,12 +612,13 @@ function renderCharts() {
   ['sc', 'rf'].forEach(fund => {
     const budgetTotal = fund === 'sc' ? scB : rfB;
     const incomeEvents = [];
-    leaseholders.forEach(lh => {
-      const p = payments[lh.id] || {};
+    flats.forEach(flat => {
+      const p = payments[flat.id] || {};
       const date = fund === 'sc' ? p.sc_received_date : p.rf_received_date;
       if (date) {
-        const share = Number(fund === 'sc' ? lh.sc_share : lh.rf_share) || 0;
-        incomeEvents.push({ date, amount: budgetTotal * share / 100, label: lh.flat + ' — ' + lh.name });
+        const share = Number(fund === 'sc' ? flat.sc_share : flat.rf_share) || 0;
+        const lh = activeLH(flat.id);
+        incomeEvents.push({ date, amount: budgetTotal * share / 100, label: flat.name + (lh ? ' — ' + lh.name : '') });
       }
     });
     const spendEvents = expenditure.filter(e => e.fund === fund).map(e => ({ date: e.date, amount: Number(e.amount), label: e.description }));
@@ -729,32 +762,91 @@ async function deleteExp(id) {
   catch (e) { toast('Failed: ' + e.message, true); }
 }
 
+function renderFlatsTable() {
+  const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
+  const sorted = sortFlats(flats);
+  document.getElementById('flat-table-body').innerHTML = sorted.length === 0
+    ? '<tr><td colspan="8" class="empty"><p>No flats added yet.</p></td></tr>'
+    : sorted.map(f => {
+        const lh = activeLH(f.id);
+        return `<tr><td>${f.name}</td><td class="mono">${Number(f.sc_share||0).toFixed(2)}%</td><td class="mono">${Number(f.rf_share||0).toFixed(2)}%</td><td class="mono">${fmt(scB*(Number(f.sc_share)||0)/100)}</td><td class="mono">${fmt(rfB*(Number(f.rf_share)||0)/100)}</td><td>${f.share_of_freehold?'<span class="badge paid">Yes</span>':'<span style="color:var(--ink-3)">—</span>'}</td><td style="color:var(--ink-3)">${lh?lh.name:'—'}</td><td style="display:flex;gap:6px"><button class="btn small" onclick="editFlat('${f.id}')">Edit</button><button class="btn small danger" onclick="deleteFlat('${f.id}')">Delete</button></td></tr>`;
+      }).join('');
+  const total = flats.reduce((a,f) => a + Number(f.sc_share||0), 0);
+  document.getElementById('flat-share-total').textContent = total.toFixed(2) + '%';
+  document.getElementById('flat-share-sum-display').className = 'share-sum ' + (Math.abs(total-100) < 0.1 ? 'valid' : 'invalid');
+}
+
+function openFlatModal() {
+  document.getElementById('flat-modal-title').textContent = 'Add flat';
+  ['flat-name','flat-sc-share','flat-rf-share','flat-edit-id'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('flat-sof').checked = false;
+  openModal('flat-modal');
+}
+
+function editFlat(id) {
+  const f = flats.find(x => x.id === id); if (!f) return;
+  document.getElementById('flat-modal-title').textContent = 'Edit flat';
+  document.getElementById('flat-name').value = f.name;
+  document.getElementById('flat-sc-share').value = f.sc_share;
+  document.getElementById('flat-rf-share').value = f.rf_share;
+  document.getElementById('flat-sof').checked = !!f.share_of_freehold;
+  document.getElementById('flat-edit-id').value = f.id;
+  openModal('flat-modal');
+}
+
+async function saveFlat() {
+  const btn = document.getElementById('flat-save-btn');
+  const editId = document.getElementById('flat-edit-id').value;
+  const f = { name: document.getElementById('flat-name').value, sc_share: Number(document.getElementById('flat-sc-share').value)||0, rf_share: Number(document.getElementById('flat-rf-share').value)||0, share_of_freehold: document.getElementById('flat-sof').checked };
+  if (!f.name) { toast('Please enter a flat name.', true); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    if (editId) {
+      const u = await api('PUT', `/api/${year}/flats/${editId}`, f);
+      const idx = flats.findIndex(x => x.id === editId);
+      if (idx >= 0) flats[idx] = u;
+    } else {
+      flats.push(await api('POST', `/api/${year}/flats/`, f));
+    }
+    closeModal('flat-modal'); renderFlatsTable(); renderDashboard(); toast('Flat saved');
+  } catch(e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+async function deleteFlat(id) {
+  if (!confirm('Delete this flat?')) return;
+  try { await api('DELETE', `/api/${year}/flats/${id}`); flats = flats.filter(f => f.id !== id); renderFlatsTable(); renderDashboard(); toast('Deleted'); }
+  catch(e) { toast('Failed: ' + e.message, true); }
+}
+
 function renderLHTable() {
-  const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
   document.getElementById('lh-table-body').innerHTML = leaseholders.length === 0
-    ? '<tr><td colspan="9" class="empty"><p>No leaseholders added yet.</p></td></tr>'
-    : sortByFlat(leaseholders).map(lh => `<tr><td>${lh.flat}</td><td>${lh.name}</td><td style="color:var(--ink-3)">${lh.email || '—'}</td><td class="mono">${Number(lh.sc_share || 0).toFixed(2)}%</td><td class="mono">${Number(lh.rf_share || 0).toFixed(2)}%</td><td class="mono">${fmt(scB * (Number(lh.sc_share) || 0) / 100)}</td><td class="mono">${fmt(rfB * (Number(lh.rf_share) || 0) / 100)}</td><td>${lh.share_of_freehold ? '<span class="badge paid">Yes</span>' : '<span style="color:var(--ink-3)">—</span>'}</td><td style="display:flex;gap:6px"><button class="btn small" onclick="editLH('${lh.id}')">Edit</button><button class="btn small danger" onclick="deleteLH('${lh.id}')">Delete</button></td></tr>`).join('');
-  const total = leaseholders.reduce((a, lh) => a + Number(lh.sc_share || 0), 0);
-  document.getElementById('share-total').textContent = total.toFixed(2) + '%';
-  document.getElementById('share-sum-display').className = 'share-sum ' + (Math.abs(total - 100) < 0.1 ? 'valid' : 'invalid');
+    ? '<tr><td colspan="6" class="empty"><p>No leaseholders added yet.</p></td></tr>'
+    : [...leaseholders].sort((a,b) => {
+        const fa = flats.find(f=>f.id===a.flat_id), fb = flats.find(f=>f.id===b.flat_id);
+        const na = fa ? (fa.name.match(/\d+/)?parseInt(fa.name.match(/\d+/)[0]):Infinity) : Infinity;
+        const nb = fb ? (fb.name.match(/\d+/)?parseInt(fb.name.match(/\d+/)[0]):Infinity) : Infinity;
+        return na !== nb ? na - nb : (fa?fa.name:'').localeCompare(fb?fb.name:'');
+      }).map(lh => {
+        const f = flats.find(x=>x.id===lh.flat_id);
+        const active = !lh.expiry_date || lh.expiry_date >= new Date().toISOString().slice(0,10);
+        return `<tr><td>${f?f.name:'—'}</td><td>${lh.name}${active?'':' <span style="font-size:10px;color:var(--ink-3)">(expired)</span>'}</td><td style="color:var(--ink-3)">${lh.email||'—'}</td><td style="color:var(--ink-3)">${lh.effective_date||'—'}</td><td style="color:var(--ink-3)">${lh.expiry_date||'—'}</td><td style="display:flex;gap:6px"><button class="btn small" onclick="editLH('${lh.id}')">Edit</button><button class="btn small danger" onclick="deleteLH('${lh.id}')">Delete</button></td></tr>`;
+      }).join('');
 }
 
 function openLHModal() {
   document.getElementById('lh-modal-title').textContent = 'Add leaseholder';
-  ['lh-flat','lh-name','lh-email','lh-sc-share','lh-rf-share','lh-effective-date','lh-expiry-date','lh-edit-id'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('lh-sof').checked = false;
+  ['lh-name','lh-email','lh-effective-date','lh-expiry-date','lh-edit-id'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('lh-flat-id').innerHTML = sortFlats(flats).map(f => `<option value="${f.id}">${f.name}</option>`).join('') || '<option value="">No flats available</option>';
   openModal('lh-modal');
 }
 
 function editLH(id) {
   const lh = leaseholders.find(l => l.id === id); if (!lh) return;
   document.getElementById('lh-modal-title').textContent = 'Edit leaseholder';
-  document.getElementById('lh-flat').value = lh.flat;
+  document.getElementById('lh-flat-id').innerHTML = sortFlats(flats).map(f => `<option value="${f.id}"${f.id===lh.flat_id?' selected':''}>${f.name}</option>`).join('');
   document.getElementById('lh-name').value = lh.name;
   document.getElementById('lh-email').value = lh.email || '';
-  document.getElementById('lh-sc-share').value = lh.sc_share;
-  document.getElementById('lh-rf-share').value = lh.rf_share;
-  document.getElementById('lh-sof').checked = !!lh.share_of_freehold;
   document.getElementById('lh-effective-date').value = lh.effective_date || '';
   document.getElementById('lh-expiry-date').value = lh.expiry_date || '';
   document.getElementById('lh-edit-id').value = lh.id;
@@ -764,8 +856,8 @@ function editLH(id) {
 async function saveLeaseholder() {
   const btn = document.getElementById('lh-save-btn');
   const editId = document.getElementById('lh-edit-id').value;
-  const lh = { flat: document.getElementById('lh-flat').value, name: document.getElementById('lh-name').value, email: document.getElementById('lh-email').value, sc_share: Number(document.getElementById('lh-sc-share').value) || 0, rf_share: Number(document.getElementById('lh-rf-share').value) || 0, share_of_freehold: document.getElementById('lh-sof').checked, effective_date: document.getElementById('lh-effective-date').value || null, expiry_date: document.getElementById('lh-expiry-date').value || null };
-  if (!lh.flat || !lh.name) { toast('Please enter flat and name.', true); return; }
+  const lh = { flat_id: document.getElementById('lh-flat-id').value, name: document.getElementById('lh-name').value, email: document.getElementById('lh-email').value, effective_date: document.getElementById('lh-effective-date').value || null, expiry_date: document.getElementById('lh-expiry-date').value || null };
+  if (!lh.flat_id || !lh.name) { toast('Please select a flat and enter a name.', true); return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     if (editId) {
@@ -775,14 +867,14 @@ async function saveLeaseholder() {
     } else {
       leaseholders.push(await api('POST', `/api/${year}/leaseholders/`, lh));
     }
-    closeModal('lh-modal'); renderLHTable(); toast('Leaseholder saved');
+    closeModal('lh-modal'); renderLHTable(); renderFlatsTable(); toast('Leaseholder saved');
   } catch (e) { toast('Failed: ' + e.message, true); }
   btn.disabled = false; btn.textContent = 'Save';
 }
 
 async function deleteLH(id) {
   if (!confirm('Delete this leaseholder?')) return;
-  try { await api('DELETE', `/api/${year}/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); toast('Deleted'); }
+  try { await api('DELETE', `/api/${year}/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); renderFlatsTable(); toast('Deleted'); }
   catch (e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -793,26 +885,29 @@ function filterCharges(f, el) {
 }
 
 function renderCharges() {
-  const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
-  const effSC = (p) => scB === 0 ? 'paid' : (p.sc_status || 'unpaid');
-  const effRF = (p) => rfB === 0 ? 'paid' : (p.rf_status || 'unpaid');
-  let lhs = leaseholders;
-  if (chargeFilter === 'unpaid') lhs = lhs.filter(lh => { const p = payments[lh.id] || {}; return effSC(p) !== 'paid' || effRF(p) !== 'paid'; });
-  if (chargeFilter === 'paid') lhs = lhs.filter(lh => { const p = payments[lh.id] || {}; return effSC(p) === 'paid' && effRF(p) === 'paid'; });
-  lhs = sortByFlat(lhs);
-  document.getElementById('charges-table-body').innerHTML = lhs.length === 0
+  const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
+  let fls = sortFlats(flats);
+  if (chargeFilter === 'unpaid') fls = fls.filter(f => { const p = payments[f.id]||{}; return effSC(p) !== 'paid' || effRF(p) !== 'paid'; });
+  if (chargeFilter === 'paid') fls = fls.filter(f => { const p = payments[f.id]||{}; return effSC(p) === 'paid' && effRF(p) === 'paid'; });
+  document.getElementById('charges-table-body').innerHTML = fls.length === 0
     ? '<tr><td colspan="10" class="empty"><p>No charges to display.</p></td></tr>'
-    : lhs.map(lh => { const sc = scB * (Number(lh.sc_share) || 0) / 100, rf = rfB * (Number(lh.rf_share) || 0) / 100, p = payments[lh.id] || {}, scSt = effSC(p), rfSt = effRF(p); return `<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(rf)}</td><td class="mono" style="font-weight:500">${fmt(sc+rf)}</td><td><span class="badge ${scSt}">${scSt}</span></td><td><span class="badge ${rfSt}">${rfSt}</span></td><td>${p.sc_received_date ? `<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${lh.id}')">${p.sc_received_date}</span>` : `<button class="btn small" onclick="markReceived('${lh.id}','sc')">Mark</button>`}</td><td>${p.rf_received_date ? `<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${lh.id}')">${p.rf_received_date}</span>` : `<button class="btn small" onclick="markReceived('${lh.id}','rf')">Mark</button>`}</td><td><button class="btn small" onclick="openPayModal('${lh.id}')">Update</button></td></tr>`; }).join('');
+    : fls.map(f => {
+        const sc = scB*(Number(f.sc_share)||0)/100, rf = rfB*(Number(f.rf_share)||0)/100;
+        const p = payments[f.id]||{}, scSt = effSC(p), rfSt = effRF(p);
+        const lh = activeLH(f.id);
+        return `<tr><td>${f.name}</td><td style="color:var(--ink-3)">${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(rf)}</td><td class="mono" style="font-weight:500">${fmt(sc+rf)}</td><td><span class="badge ${scSt}">${scSt}</span></td><td><span class="badge ${rfSt}">${rfSt}</span></td><td>${p.sc_received_date?`<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${f.id}')">${p.sc_received_date}</span>`:`<button class="btn small" onclick="markReceived('${f.id}','sc')">Mark</button>`}</td><td>${p.rf_received_date?`<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${f.id}')">${p.rf_received_date}</span>`:`<button class="btn small" onclick="markReceived('${f.id}','rf')">Mark</button>`}</td><td><button class="btn small" onclick="openPayModal('${f.id}')">Update</button></td></tr>`;
+      }).join('');
   let scC=0,rfC=0,scT=0,rfT=0;
-  leaseholders.forEach(lh => { const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100; scT+=sc;rfT+=rf; if(effSC(p)==='paid')scC+=sc;else if(effSC(p)==='partial')scC+=sc*0.5; if(effRF(p)==='paid')rfC+=rf;else if(effRF(p)==='partial')rfC+=rf*0.5; });
+  flats.forEach(f => { const p=payments[f.id]||{},sc=scB*(Number(f.sc_share)||0)/100,rf=rfB*(Number(f.rf_share)||0)/100; scT+=sc;rfT+=rf; if(effSC(p)==='paid')scC+=sc;else if(effSC(p)==='partial')scC+=sc*0.5; if(effRF(p)==='paid')rfC+=rf;else if(effRF(p)==='partial')rfC+=rf*0.5; });
   document.getElementById('charges-collected-hint').textContent = `SC collected: ${fmt(scC)} of ${fmt(scT)} · RF collected: ${fmt(rfC)} of ${fmt(rfT)}`;
 }
 
-function openPayModal(lhId) {
-  const lh = leaseholders.find(l => l.id === lhId); if (!lh) return;
-  const p = payments[lhId] || {};
-  document.getElementById('pay-lh-name').textContent = lh.flat + ' — ' + lh.name;
-  document.getElementById('pay-lh-id').value = lhId;
+function openPayModal(flatId) {
+  const flat = flats.find(f => f.id === flatId); if (!flat) return;
+  const lh = activeLH(flatId);
+  const p = payments[flatId] || {};
+  document.getElementById('pay-lh-name').textContent = flat.name + (lh ? ' — ' + lh.name : '');
+  document.getElementById('pay-flat-id').value = flatId;
   document.getElementById('pay-sc-status').value = p.sc_status || 'unpaid';
   document.getElementById('pay-rf-status').value = p.rf_status || 'unpaid';
   document.getElementById('pay-sc-date').value = p.sc_received_date || '';
@@ -822,20 +917,20 @@ function openPayModal(lhId) {
 
 async function savePayment() {
   const btn = document.getElementById('pay-save-btn');
-  const id = document.getElementById('pay-lh-id').value;
-  const data = { leaseholder_id: id, sc_status: document.getElementById('pay-sc-status').value, rf_status: document.getElementById('pay-rf-status').value, sc_received_date: document.getElementById('pay-sc-date').value || null, rf_received_date: document.getElementById('pay-rf-date').value || null };
+  const id = document.getElementById('pay-flat-id').value;
+  const data = { flat_id: id, sc_status: document.getElementById('pay-sc-status').value, rf_status: document.getElementById('pay-rf-status').value, sc_received_date: document.getElementById('pay-sc-date').value || null, rf_received_date: document.getElementById('pay-rf-date').value || null };
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try { await api('PUT', `/api/${year}/payments/${id}`, data); payments[id] = data; closeModal('pay-modal'); renderCharges(); renderDashboard(); toast('Payment updated'); }
   catch (e) { toast('Failed: ' + e.message, true); }
   btn.disabled = false; btn.textContent = 'Update';
 }
 
-async function markReceived(lhId, fund) {
+async function markReceived(flatId, fund) {
   const today = new Date().toISOString().slice(0, 10);
-  const p = payments[lhId] || {};
-  const data = { leaseholder_id: lhId, sc_status: p.sc_status || 'unpaid', rf_status: p.rf_status || 'unpaid', sc_received_date: p.sc_received_date || null, rf_received_date: p.rf_received_date || null };
+  const p = payments[flatId] || {};
+  const data = { flat_id: flatId, sc_status: p.sc_status || 'unpaid', rf_status: p.rf_status || 'unpaid', sc_received_date: p.sc_received_date || null, rf_received_date: p.rf_received_date || null };
   data[fund + '_received_date'] = today;
-  try { await api('PUT', `/api/${year}/payments/${lhId}`, data); payments[lhId] = data; renderCharges(); renderDashboard(); toast('Marked received'); }
+  try { await api('PUT', `/api/${year}/payments/${flatId}`, data); payments[flatId] = data; renderCharges(); renderDashboard(); toast('Marked received'); }
   catch (e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -852,7 +947,7 @@ function renderRecon() {
   const scSpent = expenditure.filter(e=>e.fund==='sc').reduce((a,e)=>a+Number(e.amount),0);
   const rfSpent = expenditure.filter(e=>e.fund==='rf').reduce((a,e)=>a+Number(e.amount),0);
   let scC=0,rfC=0,scR=0,rfR=0;
-  leaseholders.forEach(lh=>{const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100;scR+=sc;rfR+=rf;if(p.sc_status==='paid')scC+=sc;else if(p.sc_status==='partial')scC+=sc*0.5;if(p.rf_status==='paid')rfC+=rf;else if(p.rf_status==='partial')rfC+=rf*0.5;});
+  flats.forEach(flat=>{const p=payments[flat.id]||{},sc=scB*(Number(flat.sc_share)||0)/100,rf=rfB*(Number(flat.rf_share)||0)/100;scR+=sc;rfR+=rf;if(effSC(p)==='paid')scC+=sc;else if(effSC(p)==='partial')scC+=sc*0.5;if(effRF(p)==='paid')rfC+=rf;else if(effRF(p)==='partial')rfC+=rf*0.5;});
   const surplus = scC - scSpent;
   document.getElementById('r-sc-raised').textContent = fmt(scR);
   document.getElementById('r-sc-collected').textContent = fmt(scC);
@@ -864,9 +959,9 @@ function renderRecon() {
   document.getElementById('r-rf-closing').textContent = fmt(rfC - rfSpent);
   document.getElementById('r-rf-notes').textContent = budget.rf_notes || 'No notes set.';
   document.getElementById('r-sc-cats').innerHTML = (budget.sc_categories||[]).map(cat=>{const s=expenditure.filter(e=>e.fund==='sc'&&e.category===cat).reduce((a,e)=>a+Number(e.amount),0);return`<div class="recon-line"><span>${cat}</span><span class="mono">${fmt(s)}</span></div>`;}).join('')||'<div class="recon-line" style="color:var(--ink-3)">No categories set</div>';
-  document.getElementById('r-lh-table').innerHTML = leaseholders.length===0
-    ?'<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No leaseholders added.</td></tr>'
-    :sortByFlat(leaseholders).map(lh=>{const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100,scP=p.sc_status==='paid'?sc:p.sc_status==='partial'?sc*0.5:0,rfP=p.rf_status==='paid'?rf:p.rf_status==='partial'?rf*0.5:0,out=(sc-scP)+(rf-rfP);return`<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;}).join('');
+  document.getElementById('r-lh-table').innerHTML = flats.length===0
+    ?'<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No flats added.</td></tr>'
+    :sortFlats(flats).map(flat=>{const p=payments[flat.id]||{},sc=scB*(Number(flat.sc_share)||0)/100,rf=rfB*(Number(flat.rf_share)||0)/100,scP=effSC(p)==='paid'?sc:effSC(p)==='partial'?sc*0.5:0,rfP=effRF(p)==='paid'?rf:effRF(p)==='partial'?rf*0.5:0,out=(sc-scP)+(rf-rfP),lh=activeLH(flat.id);return`<tr><td>${flat.name}</td><td>${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;}).join('');
 }
 
 function openModal(id) {

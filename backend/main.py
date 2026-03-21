@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from backend.routers import leaseholders, charges
+from backend.routers import leaseholders, charges, flats
 import os
 
 app = FastAPI(title="Block Management API")
 
+app.include_router(flats.router)
 app.include_router(leaseholders.router)
 app.include_router(charges.router)
 

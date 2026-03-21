@@ -123,7 +123,7 @@ async def list_payments(year: str):
     return {d.id: d.to_dict() for d in docs}
 
 
-@router.put("/payments/{lh_id}")
-async def update_payment(year: str, lh_id: str, payment: Payment):
-    _pay_col(year).document(lh_id).set(payment.model_dump(exclude={"leaseholder_id"}))
+@router.put("/payments/{flat_id}")
+async def update_payment(year: str, flat_id: str, payment: Payment):
+    _pay_col(year).document(flat_id).set(payment.model_dump(exclude={"flat_id"}))
     return payment

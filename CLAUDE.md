@@ -30,6 +30,7 @@ backend/
   models.py         # Pydantic models
   routers/
     charges.py      # Budget, expenditure, payments, invoice/supplier uploads
+    flats.py        # Flat CRUD
     leaseholders.py # Leaseholder CRUD
 frontend/
   index.html        # Entire frontend — HTML, CSS, and JS in one file
@@ -38,16 +39,22 @@ frontend/
 
 ## Data models
 
+### Flat
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | UUID, set on create |
+| `name` | string | e.g. "Flat 3" |
+| `sc_share` | float | % of SC budget (0–100) |
+| `rf_share` | float | % of RF budget (0–100) |
+| `share_of_freehold` | bool | default false |
+
 ### Leaseholder
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | string | UUID, set on create |
-| `flat` | string | e.g. "Flat 3" |
+| `flat_id` | string | References a Flat by ID |
 | `name` | string | |
 | `email` | string? | |
-| `sc_share` | float | % of SC budget (0–100) |
-| `rf_share` | float | % of RF budget (0–100) |
-| `share_of_freehold` | bool | default false |
 | `effective_date` | string? | ISO date — when the lease/tenure began |
 | `expiry_date` | string? | ISO date — when the lease/tenure ends |
 
@@ -75,24 +82,26 @@ frontend/
 | `supplier` | string? | Name or reference; renders as clickable link in table if a URL |
 | `invoice_gcs_path` | string? | `gs://bucket/year/invoices/{id}.ext` — signed URL generated on demand |
 
-### Payment _(keyed by leaseholder ID)_
+### Payment _(keyed by flat ID)_
 | Field | Type | Notes |
 | --- | --- | --- |
+| `flat_id` | string | References a Flat by ID |
 | `sc_status` | string | `"unpaid"` \| `"partial"` \| `"paid"` |
 | `rf_status` | string | `"unpaid"` \| `"partial"` \| `"paid"` |
 | `sc_received_date` | string? | ISO date payment was received |
 | `rf_received_date` | string? | ISO date payment was received |
 
-> If the budget for a fund is £0, its status is treated as `"paid"` automatically in the UI (see `effSC`/`effRF` in `renderCharges`).
+> If the budget for a fund is £0, its status is treated as `"paid"` automatically in the UI (see module-level `effSC`/`effRF` helpers).
 
 ## Firestore structure
 
 ```
 years/{year}/
   budget            # Budget map (see above)
-  leaseholders/{id} # Leaseholder documents
+  flats/{id}        # Flat documents
+  leaseholders/{id} # Leaseholder documents (flat_id references a flat)
   expenditure/{id}  # Expenditure documents
-  payments/{lh_id}  # Payment documents, keyed by leaseholder ID
+  payments/{flat_id} # Payment documents, keyed by flat ID
 ```
 
 ## GCS layout
@@ -105,19 +114,21 @@ Invoices are stored by GCS path in Firestore (`invoice_gcs_path`). Signed URLs (
 
 ## Key frontend conventions
 
-- All state lives in four module-level variables: `budget`, `leaseholders`, `expenditure`, `payments`
-- `loadAll()` fetches all four in parallel and calls `renderDashboard()`
+- All state lives in five module-level variables: `budget`, `flats`, `leaseholders`, `expenditure`, `payments`
+- `loadAll()` fetches all five in parallel and calls `renderDashboard()`
 - Each page has a `render*()` function called from `showPage()`
-- `sortByFlat(arr)` sorts leaseholders by numeric flat number — apply to all leaseholder lists
+- `sortFlats(arr)` sorts flats by numeric name — apply to all flat lists
+- `activeLH(flatId)` returns the current active leaseholder for a flat (not expired, most recent effective date)
+- `effSC(p)` / `effRF(p)` are module-level helpers — return `'paid'` automatically when the fund budget is £0
 - `fmt(n)` formats £ values; `fmtK(n)` abbreviates to £12.3k
 - Charts use Chart.js 4 + chartjs-adapter-date-fns (loaded via CDN)
-- Payment status display uses `effSC(p)` / `effRF(p)` helpers in `renderCharges()` — returns `'paid'` automatically when the fund budget is £0
+- Payments are keyed by flat ID; charges/reconciliation iterate over flats, not leaseholders
 
 ## Fund terminology
 
 - **SC** — Service charge fund (recurring annual costs: insurance, maintenance, etc.)
 - **RF** — Reserve fund (long-term savings for major works)
-- Each leaseholder has an independent `sc_share` and `rf_share` (% of total)
+- Each flat has an independent `sc_share` and `rf_share` (% of total)
 
 ## Deployment
 
