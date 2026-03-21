@@ -581,8 +581,9 @@
   <div class="modal" style="width:440px">
     <div class="modal-header"><div class="modal-title" id="block-modal-title">Add block</div><button class="modal-close" onclick="closeModal('block-modal')">×</button></div>
     <input type="hidden" id="block-edit-id">
-    <div class="form-group"><label class="form-label">Block name</label><input class="form-input" type="text" id="block-name" placeholder="e.g. Eagle Court Management (Hornsey) Limited"></div>
-    <div class="form-group"><label class="form-label">Address <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="text" id="block-address" placeholder="e.g. 1–12 Eagle Court, London N8 0AA"></div>
+    <div class="form-group"><label class="form-label">Company name</label><input class="form-input" type="text" id="block-name" placeholder="e.g. Eagle Court Management (Hornsey) Limited"></div>
+    <div class="form-group"><label class="form-label">Building name <span style="color:var(--ink-3);font-weight:400">(used in demand letters, e.g. "Eagle Court")</span></label><input class="form-input" type="text" id="block-building-name" placeholder="e.g. Eagle Court"></div>
+    <div class="form-group"><label class="form-label">Address</label><input class="form-input" type="text" id="block-address" placeholder="e.g. 69 High Street, Hornsey, London, N8 7QG"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Company number <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="text" id="block-company-number" placeholder="e.g. 12345678"></div>
       <div class="form-group"><label class="form-label">Website / URL <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="url" id="block-url" placeholder="https://..."></div>
@@ -1500,7 +1501,7 @@ function renderSettings() {
 function openBlockModal() {
   document.getElementById('block-modal-title').textContent = 'Add block';
   document.getElementById('block-edit-id').value = '';
-  ['block-name','block-address','block-company-number','block-url',
+  ['block-name','block-building-name','block-address','block-company-number','block-url',
    'block-sc-bank-name','block-sc-sort-code','block-sc-account-number',
    'block-rf-bank-name','block-rf-sort-code','block-rf-account-number'].forEach(id => document.getElementById(id).value = '');
   openModal('block-modal');
@@ -1511,6 +1512,7 @@ function editBlock(id) {
   document.getElementById('block-modal-title').textContent = 'Edit block';
   document.getElementById('block-edit-id').value = id;
   document.getElementById('block-name').value = b.name || '';
+  document.getElementById('block-building-name').value = b.building_name || '';
   document.getElementById('block-address').value = b.address || '';
   document.getElementById('block-company-number').value = b.company_number || '';
   document.getElementById('block-url').value = b.url || '';
@@ -1528,6 +1530,7 @@ async function saveBlock() {
   const editId = document.getElementById('block-edit-id').value;
   const data = {
     name: document.getElementById('block-name').value.trim(),
+    building_name: document.getElementById('block-building-name').value.trim() || null,
     address: document.getElementById('block-address').value.trim() || null,
     company_number: document.getElementById('block-company-number').value.trim() || null,
     url: document.getElementById('block-url').value.trim() || null,

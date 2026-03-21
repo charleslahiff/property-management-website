@@ -2,14 +2,15 @@
 
 Endpoints:
   GET /api/blocks/{block_id}/years/{year_id}/demands/{flat_id}
-      → single demand PDF for one flat
+      -> single demand PDF for one flat
 
   GET /api/blocks/{block_id}/years/{year_id}/demands
-      → zip archive containing one PDF per flat
+      -> zip archive containing one PDF per flat
 """
 
 import datetime
 import io
+import re
 import zipfile
 
 from fastapi import APIRouter, HTTPException
@@ -24,13 +25,134 @@ _MONTHS = [
     "July", "August", "September", "October", "November", "December",
 ]
 
+# Full prescribed statutory summary — Service Charges (Summary of Rights and
+# Obligations, and Transitional Provision) (England) Regulations 2007
+_STATUTORY_POINTS = [
+    (
+        "1.",
+        "This summary, which briefly sets out your rights and obligations in relation to "
+        "variable service charges, must by law accompany a demand for service charges. Unless "
+        "a summary is sent to you with a demand, you may withhold the service charge. The "
+        "summary does not give a full interpretation of the law and if you are in any doubt "
+        "about your rights and obligations you should seek independent advice.",
+    ),
+    (
+        "2.",
+        "Your lease sets out your obligations to pay service charges to your landlord in "
+        "addition to your rent. Service charges are amounts payable for services, repairs, "
+        "maintenance, improvements, insurance or the landlord's costs of management, to the "
+        "extent that the costs have been reasonably incurred.",
+    ),
+    (
+        "3.",
+        "You have the right to ask the First-tier Tribunal to determine whether you are "
+        "liable to pay service charges for services, repairs, maintenance, improvements, "
+        "insurance or management. You may make a request before or after you have paid the "
+        "service charge. If the tribunal determines that the service charge is payable, it "
+        "may also determine who should pay it and to whom, the amount, the date it should be "
+        "paid by, and how it should be paid. However, you do not have these rights where a "
+        "matter has been agreed or admitted by you, has already been referred to arbitration "
+        "and you agreed to go to arbitration after the disagreement arose, or has been "
+        "decided by a court.",
+    ),
+    (
+        "4.",
+        "If your lease allows your landlord to recover costs incurred or that may be incurred "
+        "in legal proceedings as service charges, you may ask the court or tribunal, before "
+        "which those proceedings were brought, to rule that your landlord may not do so.",
+    ),
+    (
+        "5.",
+        "Where you seek a determination from a First-tier Tribunal, you will have to pay an "
+        "application fee and, where the matter proceeds to a hearing, a hearing fee, unless "
+        "you qualify for a waiver or reduction. The total fees payable will not exceed "
+        "\xa3500, but making an application may incur additional costs, such as professional "
+        "fees, which you may also have to pay.",
+    ),
+    (
+        "6.",
+        "The First-tier Tribunal has the power to award costs, not exceeding \xa3500, against "
+        "a party to any proceedings where it dismisses a matter because it is frivolous, "
+        "vexatious or an abuse of process, or where it considers a party has acted "
+        "frivolously, vexatiously, abusively, disruptively or unreasonably. The Upper "
+        "Tribunal (Lands Chamber) has similar powers when hearing an appeal.",
+    ),
+    (
+        "7.",
+        "If your landlord proposes works on a building that will cost you or any other tenant "
+        "more than \xa3250, or proposes to enter into an agreement for works or services which "
+        "will last for more than 12 months and will cost you or any other tenant more than "
+        "\xa3100 in any 12 month accounting period, your contribution will be limited to these "
+        "amounts unless your landlord has properly consulted on the proposed works or "
+        "agreement or the First-tier Tribunal has agreed that consultation is not required.",
+    ),
+    (
+        "8.",
+        "You have the right to apply to a First-tier Tribunal to ask it to determine whether "
+        "your lease should be varied on the grounds that it does not make satisfactory "
+        "provision in respect of the calculation of a service charge payable under the lease.",
+    ),
+    (
+        "9.",
+        "You have the right to write to your landlord to request a written summary of the "
+        "costs which make up the service charges. The summary must cover the last 12 month "
+        "period used for making up the accounts relating to the service charge ending no "
+        "later than the date of your request, or the 12 month period ending with the date of "
+        "your request where accounts are not made up for 12 month periods. The summary must "
+        "be given to you within 1 month of your request or 6 months of the end of the period "
+        "to which the summary relates, whichever is the later.",
+    ),
+    (
+        "10.",
+        "You have the right, within 6 months of receiving a written summary of costs, to "
+        "require the landlord to provide you with reasonable facilities to inspect the "
+        "accounts, receipts and other documents supporting the summary and for taking copies "
+        "or extracts from them.",
+    ),
+    (
+        "11.",
+        "You have the right to ask an accountant or surveyor to carry out an audit of the "
+        "financial management of the premises containing your dwelling, to establish the "
+        "obligations of your landlord and the extent to which the service charges you pay are "
+        "being used efficiently. It will depend on your circumstances whether you can "
+        "exercise this right alone or only with the support of others living in the premises. "
+        "You are strongly advised to seek independent advice before exercising this right.",
+    ),
+    (
+        "12.",
+        "Your lease may give your landlord a right of re-entry or forfeiture where you have "
+        "failed to pay charges which are properly due under the lease. However, to exercise "
+        "this right, the landlord must meet all the legal requirements and obtain a court "
+        "order. A court order will only be granted if you have admitted you are liable to pay "
+        "the amount or it is finally determined by a court, tribunal or by arbitration that "
+        "the amount is due. The court has a wide discretion in granting such an order and it "
+        "will take into account all the circumstances of the case.",
+    ),
+]
+
+
+def _ordinal(n: int) -> str:
+    suffix = "th" if 11 <= n % 100 <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
 
 def _fmt_date(d: datetime.date) -> str:
-    return f"{d.day} {_MONTHS[d.month - 1]} {d.year}"
+    return f"{_ordinal(d.day)} {_MONTHS[d.month - 1]} {d.year}"
 
 
 def _fmt_money(n: float) -> str:
-    return f"\xa3{n:,.2f}"  # £ sign
+    return f"\xa3{n:,.2f}"
+
+
+def _make_ref(fund: str, flat_name: str, lh_name: str | None) -> str:
+    fund_code = "SC" if fund == "sc" else "RF"
+    m = re.search(r"\d+", flat_name)
+    flat_code = f"F{m.group()}" if m else flat_name.replace(" ", "")[:4].upper()
+    if lh_name:
+        surname = lh_name.strip().split()[-1][:3].upper()
+    else:
+        surname = "???"
+    return f"{fund_code} {flat_code} {surname}"
 
 
 def _active_lh(all_lh: list, flat_id: str) -> dict | None:
@@ -53,16 +175,19 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     billing_freq = budget.get("billing_freq", "annual")
 
     block_name = block.get("name", "")
+    building_name = block.get("building_name") or ""
     block_address = (block.get("address") or "").replace("\r", "")
+    address_lines = [l.strip() for l in block_address.split("\n") if l.strip()]
+
     sc_bank = {
         "name": block.get("sc_bank_account_name") or "",
         "sort_code": block.get("sc_bank_sort_code") or "",
-        "account_number": block.get("sc_bank_account_number") or "",
+        "account": block.get("sc_bank_account_number") or "",
     }
     rf_bank = {
         "name": block.get("rf_bank_account_name") or "",
         "sort_code": block.get("rf_bank_sort_code") or "",
-        "account_number": block.get("rf_bank_account_number") or "",
+        "account": block.get("rf_bank_account_number") or "",
     }
 
     lh_name = lh.get("name", "The Leaseholder") if lh else "The Leaseholder"
@@ -75,7 +200,8 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     rf_amount = rf_budget * rf_share / 100
     total = sc_amount + rf_amount
 
-    today_str = _fmt_date(datetime.date.today())
+    today = datetime.date.today()
+    invoice_date_str = _fmt_date(today)
 
     due_display = ""
     if due_date_raw:
@@ -84,163 +210,160 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
         except ValueError:
             due_display = due_date_raw
 
-    freq_text = "annually" if billing_freq == "annual" else "quarterly"
+    # Year date range for description e.g. "01/04/25 to 31/03/26"
+    fy = year_data
+    try:
+        fy_start = datetime.date.fromisoformat(fy.get("start_date", ""))
+        fy_end = datetime.date.fromisoformat(fy.get("end_date", ""))
+        date_range = f"{fy_start.strftime('%d/%m/%y')} to {fy_end.strftime('%d/%m/%y')}"
+    except (ValueError, TypeError):
+        date_range = year_label
 
+    # Full address as a single inline string for description line
+    address_inline = ", ".join(address_lines) if address_lines else ""
+
+    # ── Build PDF ─────────────────────────────────────────────────
     pdf = FPDF()
+    pdf.set_margins(20, 20, 20)
+    pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
-    pdf.set_margins(25, 22, 25)
-    pdf.set_auto_page_break(auto=True, margin=22)
 
-    # ── Block header ──────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.cell(0, 8, block_name, new_x="LMARGIN", new_y="NEXT")
-    if block_address:
-        pdf.set_font("Helvetica", "", 9)
-        for line in block_address.split("\n"):
-            if line.strip():
-                pdf.cell(0, 5, line.strip(), new_x="LMARGIN", new_y="NEXT")
+    # ── Centred block header ──────────────────────────────────────
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 6, block_name, align="C", new_x="LMARGIN", new_y="NEXT")
+    for line in address_lines:
+        pdf.cell(0, 6, line, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(8)
 
-    # Date — right-aligned
+    # ── Leaseholder address (left) + dates (right) ────────────────
+    # We print the address lines, then go back and place the dates
+    # at the same vertical band using absolute positioning.
+    addr_y = pdf.get_y()
+
+    flat_addr_lines = [lh_name]
+    if building_name:
+        flat_addr_lines.append(f"{flat_name} {building_name}")
+    else:
+        flat_addr_lines.append(flat_name)
+    flat_addr_lines.extend(address_lines)
+
+    pdf.set_font("Helvetica", "", 11)
+    for line in flat_addr_lines:
+        pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
+
+    after_addr_y = pdf.get_y()
+
+    # Print dates right-aligned at addr_y
+    date_y = addr_y + 6 * (len(flat_addr_lines) - 2)  # roughly middle of address block
+    pdf.set_xy(20, date_y)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 6, f"Invoice date: {invoice_date_str}", align="R", new_x="LMARGIN", new_y="NEXT")
+    if due_display:
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"Payment due date: {due_display}", align="R", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.set_y(max(after_addr_y, pdf.get_y()) + 8)
+
+    # ── Title ─────────────────────────────────────────────────────
+    pdf.set_font("Helvetica", "", 12)
+    pdf.cell(0, 8, "Service Charge Demand", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # ── Description / Charge table ────────────────────────────────
+    desc_w = 130
+    charge_w = 40
+
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(desc_w, 6, "Description:", new_x="RIGHT")
+    pdf.cell(charge_w, 6, "Charge", align="R", new_x="LMARGIN", new_y="NEXT")
+
+    # Flat address line (description)
+    if building_name:
+        desc_addr = f"{flat_name} {building_name}, {address_inline}" if address_inline else f"{flat_name} {building_name}"
+    else:
+        desc_addr = f"{flat_name}, {address_inline}" if address_inline else flat_name
+
+    if sc_budget > 0 and rf_budget > 0:
+        # Two line items
+        pdf.cell(desc_w, 6, desc_addr, new_x="RIGHT")
+        pdf.cell(charge_w, 6, "", align="R", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.cell(desc_w, 6, f"Service charge for {date_range}", new_x="RIGHT")
+        pdf.cell(charge_w, 6, _fmt_money(sc_amount), align="R", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.cell(desc_w, 6, f"Reserve fund contribution for {date_range}", new_x="RIGHT")
+        pdf.cell(charge_w, 6, _fmt_money(rf_amount), align="R", new_x="LMARGIN", new_y="NEXT")
+    elif sc_budget > 0:
+        pdf.cell(desc_w, 6, desc_addr, new_x="RIGHT")
+        pdf.cell(charge_w, 6, _fmt_money(sc_amount), align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(desc_w, 6, f"Service charge for {date_range}", new_x="LMARGIN", new_y="NEXT")
+    elif rf_budget > 0:
+        pdf.cell(desc_w, 6, desc_addr, new_x="RIGHT")
+        pdf.cell(charge_w, 6, _fmt_money(rf_amount), align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(desc_w, 6, f"Reserve fund contribution for {date_range}", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(4)
+
+    # Invoice total (right-aligned, bold)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, "Invoice Total", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, _fmt_money(total), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(8)
+
+    # ── BACS payment section ──────────────────────────────────────
+    pdf.set_font("Helvetica", "", 11)
+
+    def _print_bacs(bank: dict, fund: str, amount: float):
+        if not any(bank.values()):
+            return
+        ref = _make_ref(fund, flat_name, lh_name)
+        pdf.cell(0, 6, "Please make BACS payment to:", new_x="LMARGIN", new_y="NEXT")
+        if bank["name"]:
+            pdf.cell(0, 6, f"Name: {bank['name']}", new_x="LMARGIN", new_y="NEXT")
+        if bank["sort_code"]:
+            pdf.cell(0, 6, f"Sort Code: {bank['sort_code']}", new_x="LMARGIN", new_y="NEXT")
+        if bank["account"]:
+            pdf.cell(0, 6, f"Account Number: {bank['account']}", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6, f"Reference: {ref}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+
+    if sc_budget > 0:
+        _print_bacs(sc_bank, "sc", sc_amount)
+    if rf_budget > 0:
+        _print_bacs(rf_bank, "rf", rf_amount)
+
+    # ── Statutory Information (s.47/48 and s.42) ──────────────────
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, "Statutory Information", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, today_str, align="R", new_x="LMARGIN", new_y="NEXT")
-
-    # Separator
-    pdf.ln(2)
-    pdf.set_draw_color(180, 180, 180)
-    pdf.set_line_width(0.3)
-    pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 160, pdf.get_y())
-    pdf.ln(6)
-
-    # ── Addressee ─────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 6, lh_name, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, flat_name, new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(6)
-
-    # ── Subject ───────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, f"SERVICE CHARGE DEMAND - {year_label}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(3)
-
-    # ── Intro ─────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("Helvetica", "", 11)
     pdf.multi_cell(
         0, 6,
-        f"We hereby demand payment of the service charges and reserve fund contributions "
-        f"payable {freq_text} in respect of your lease of {flat_name} "
-        f"for the financial year {year_label}.",
+        "In accordance with Sections 47 and 48 of the Landlord and Tenant Act 1987, "
+        "the landlord's name and address for service of notices (including notices of "
+        "proceedings) is:",
     )
-    pdf.ln(5)
+    pdf.ln(2)
+    pdf.cell(0, 6, block_name, new_x="LMARGIN", new_y="NEXT")
+    for line in address_lines:
+        pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+    pdf.multi_cell(
+        0, 6,
+        "The service charge monies are held in a dedicated trust account in accordance "
+        "with Section 42 of the Landlord and Tenant Act 1987.",
+    )
 
-    # ── Charge table ──────────────────────────────────────────────
-    col = [95, 30, 35]
-    pdf.set_fill_color(240, 240, 238)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(col[0], 8, "Charge", border=1, fill=True)
-    pdf.cell(col[1], 8, "Share", border=1, fill=True, align="C")
-    pdf.cell(col[2], 8, "Amount", border=1, fill=True, align="R")
-    pdf.ln()
+    # ── Page 2: Full prescribed statutory summary ─────────────────
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, "Service Charges - Summary of Tenants' Rights and Obligations", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
 
-    pdf.set_font("Helvetica", "", 10)
-    if sc_budget > 0:
-        pdf.cell(col[0], 8, "Service charge", border=1)
-        pdf.cell(col[1], 8, f"{sc_share:g}%", border=1, align="C")
-        pdf.cell(col[2], 8, _fmt_money(sc_amount), border=1, align="R")
-        pdf.ln()
-    if rf_budget > 0:
-        pdf.cell(col[0], 8, "Reserve fund contribution", border=1)
-        pdf.cell(col[1], 8, f"{rf_share:g}%", border=1, align="C")
-        pdf.cell(col[2], 8, _fmt_money(rf_amount), border=1, align="R")
-        pdf.ln()
-
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_fill_color(240, 240, 238)
-    pdf.cell(col[0] + col[1], 8, "Total payable", border=1, fill=True)
-    pdf.cell(col[2], 8, _fmt_money(total), border=1, fill=True, align="R")
-    pdf.ln()
-    pdf.ln(6)
-
-    # ── Due date ──────────────────────────────────────────────────
-    if due_display:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, f"Payment due: {due_display}", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(3)
-
-    # ── Payment details ───────────────────────────────────────────
-    def _print_account(label: str, acct: dict, amount: float):
-        if not any(acct.values()):
-            return
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, f"{label}  ({_fmt_money(amount)})", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "", 10)
-        if acct["name"]:
-            pdf.cell(0, 6, f"Account name:     {acct['name']}", new_x="LMARGIN", new_y="NEXT")
-        if acct["sort_code"]:
-            pdf.cell(0, 6, f"Sort code:            {acct['sort_code']}", new_x="LMARGIN", new_y="NEXT")
-        if acct["account_number"]:
-            pdf.cell(0, 6, f"Account number:  {acct['account_number']}", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "I", 9)
-        pdf.cell(0, 5, f"Reference: {flat_name}", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(3)
-
-    has_payment_details = any(sc_bank.values()) or any(rf_bank.values())
-    if has_payment_details:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 7, "Payment details", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(1)
-        if sc_budget > 0:
-            _print_account("Service charge account", sc_bank, sc_amount)
-        if rf_budget > 0:
-            _print_account("Reserve fund account", rf_bank, rf_amount)
-        pdf.ln(1)
-
-    # ── Statutory summary ─────────────────────────────────────────
-    pdf.ln(3)
-    pdf.set_draw_color(180, 180, 180)
-    pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 160, pdf.get_y())
-    pdf.ln(5)
-
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(0, 6, "SUMMARY OF TENANTS' RIGHTS AND OBLIGATIONS", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.cell(0, 5, "Service Charges (Summary of Rights and Obligations, and Transitional Provision) (England) Regulations 2007", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(3)
-
-    paras = [
-        (
-            "1. Right to challenge service charges",
-            "If you consider that a service charge is not payable or the amount is unreasonable, "
-            "you have the right to apply to the First-tier Tribunal (Property Chamber) for a determination.",
-        ),
-        (
-            "2. Right to information",
-            "You have the right to request a written summary of costs incurred and to inspect the accounts, "
-            "receipts and other documents supporting that summary.",
-        ),
-        (
-            "3. Right to appoint a manager",
-            "You may have the right to apply to the tribunal for the appointment of a manager if the landlord "
-            "has failed to comply with their management obligations.",
-        ),
-        (
-            "4. Right to acquire the freehold",
-            "If the required number of qualifying tenants wish to do so, they may have the right to acquire "
-            "the freehold of the premises (collective enfranchisement).",
-        ),
-        (
-            "5. Withholding payment",
-            "If you withhold payment of a service charge, the landlord may bring proceedings to recover the "
-            "outstanding amount. You may also be liable for interest and costs if the tribunal finds the charge payable.",
-        ),
-    ]
-    for title, body in paras:
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.cell(0, 5, title, new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "", 8)
-        pdf.multi_cell(0, 5, body)
-        pdf.ln(1)
+    for number, text in _STATUTORY_POINTS:
+        pdf.set_font("Helvetica", "", 11)
+        # Print number and text together — multi_cell handles wrapping
+        pdf.multi_cell(0, 6, f"{number} {text}")
 
     return bytes(pdf.output())
 

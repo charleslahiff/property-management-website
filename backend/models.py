@@ -6,6 +6,7 @@ from datetime import date
 class Block(BaseModel):
     id: Optional[str] = None
     name: str
+    building_name: Optional[str] = None  # e.g. "Eagle Court" — used in demand letter addresses
     address: Optional[str] = None
     company_number: Optional[str] = None
     url: Optional[str] = None
