@@ -321,8 +321,8 @@
     <button class="btn primary" onclick="openModal('exp-modal')">+ Log expenditure</button>
   </div>
   <div class="card">
-    <table><thead><tr><th>Date</th><th>Description</th><th>Fund</th><th>Category</th><th>Supplier / ref</th><th>Amount</th><th></th></tr></thead>
-    <tbody id="exp-table-body"><tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr></tbody></table>
+    <table><thead><tr><th>Invoice date</th><th>Description</th><th>Fund</th><th>Category</th><th>Supplier / ref</th><th>Amount</th><th>Paid</th><th></th></tr></thead>
+    <tbody id="exp-table-body"><tr><td colspan="8" class="empty"><p>No expenditure logged yet.</p></td></tr></tbody></table>
   </div>
 </div>
 
@@ -406,7 +406,8 @@
 <!-- MODALS -->
 <div class="modal-overlay" id="exp-modal">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Log expenditure</div><button class="modal-close" onclick="closeModal('exp-modal')">×</button></div>
+    <div class="modal-header"><div class="modal-title" id="exp-modal-title">Log expenditure</div><button class="modal-close" onclick="closeModal('exp-modal')">×</button></div>
+    <input type="hidden" id="exp-edit-id">
     <div class="form-row">
       <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="exp-date"></div>
       <div class="form-group"><label class="form-label">Fund</label>
@@ -422,6 +423,7 @@
       <div class="form-group"><label class="form-label">Amount (£)</label><input class="form-input" type="number" step="0.01" id="exp-amount" placeholder="0.00"></div>
     </div>
     <div class="form-group"><label class="form-label">Supplier / reference</label><input class="form-input" type="text" id="exp-supplier" placeholder="e.g. ABC Contractors, Inv #1234"></div>
+    <div class="form-group"><label class="form-label">Payment date <span style="color:var(--ink-3);font-weight:400">(optional — when cash left the account)</span></label><input class="form-input" type="date" id="exp-payment-date"></div>
     <div class="form-group">
       <label class="form-label">Invoice (optional)</label>
       <div class="drop-zone" id="invoice-drop-zone" onclick="document.getElementById('exp-invoice').click()">
@@ -532,16 +534,26 @@ function activeLH(flatId) { const t = new Date().toISOString().slice(0,10); retu
 function effSC(p) { return Number(budget.sc||0) === 0 ? 'paid' : (p.sc_status||'unpaid'); }
 function effRF(p) { return Number(budget.rf||0) === 0 ? 'paid' : (p.rf_status||'unpaid'); }
 
+async function loadBuilding() {
+  [flats, leaseholders] = await Promise.all([
+    api('GET', `/api/flats/`),
+    api('GET', `/api/leaseholders/`),
+  ]);
+}
+
+async function loadYear() {
+  [budget, expenditure, payments] = await Promise.all([
+    api('GET', `/api/${year}/budget`),
+    api('GET', `/api/${year}/expenditure`),
+    api('GET', `/api/${year}/payments`),
+  ]);
+  renderDashboard();
+}
+
 async function loadAll() {
   try {
-    [budget, flats, leaseholders, expenditure, payments] = await Promise.all([
-      api('GET', `/api/${year}/budget`),
-      api('GET', `/api/${year}/flats/`),
-      api('GET', `/api/${year}/leaseholders/`),
-      api('GET', `/api/${year}/expenditure`),
-      api('GET', `/api/${year}/payments`),
-    ]);
-    renderDashboard();
+    await loadBuilding();
+    await loadYear();
   } catch (e) { toast('Failed to load data: ' + e.message, true); }
 }
 
@@ -559,7 +571,12 @@ function showPage(id) {
   if (id === 'reconciliation') renderRecon();
 }
 
-async function changeYear(y) { year = y; await loadAll(); showPage('dashboard'); }
+async function changeYear(y) {
+  year = y;
+  await loadYear();
+  const active = document.querySelector('.page.active');
+  showPage(active ? active.id.replace('page-', '') : 'dashboard');
+}
 
 function renderDashboard() {
   document.getElementById('dash-subtitle').textContent = 'Financial year ' + year + '/' + (parseInt(year) + 1).toString().slice(2);
@@ -621,7 +638,7 @@ function renderCharts() {
         incomeEvents.push({ date, amount: budgetTotal * share / 100, label: flat.name + (lh ? ' — ' + lh.name : '') });
       }
     });
-    const spendEvents = expenditure.filter(e => e.fund === fund).map(e => ({ date: e.date, amount: Number(e.amount), label: e.description }));
+    const spendEvents = expenditure.filter(e => e.fund === fund && (e.payment_date || e.date)).map(e => ({ date: e.payment_date || e.date, amount: Number(e.amount), label: e.description }));
     const allDates = [...new Set([...incomeEvents.map(e => e.date), ...spendEvents.map(e => e.date)])].sort();
     let cumIncome = 0, cumSpend = 0;
     const balanceData = [];
@@ -715,8 +732,8 @@ function renderExpTable() {
   let exps = [...expenditure].sort((a, b) => b.date.localeCompare(a.date));
   if (expFilter !== 'all') exps = exps.filter(e => e.fund === expFilter);
   document.getElementById('exp-table-body').innerHTML = exps.length === 0
-    ? '<tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr>'
-    : exps.map(e => { const sup = e.supplier ? (e.invoice_gcs_path ? `<a href="#" onclick="viewInvoice('${e.id}');return false;" style="color:var(--accent);text-decoration:underline">${e.supplier}</a>` : `<span style="color:var(--ink-3)">${e.supplier}</span>`) : '<span style="color:var(--ink-3)">—</span>'; return `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td>${sup}</td><td class="mono">${fmt(e.amount)}</td><td style="text-align:right"><button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`; }).join('');
+    ? '<tr><td colspan="8" class="empty"><p>No expenditure logged yet.</p></td></tr>'
+    : exps.map(e => { const sup = e.supplier ? (e.invoice_gcs_path ? `<a href="#" onclick="viewInvoice('${e.id}');return false;" style="color:var(--accent);text-decoration:underline">${e.supplier}</a>` : `<span style="color:var(--ink-3)">${e.supplier}</span>`) : '<span style="color:var(--ink-3)">—</span>'; return `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td>${sup}</td><td class="mono">${fmt(e.amount)}</td><td style="color:var(--ink-3)">${e.payment_date || '—'}</td><td style="text-align:right;display:flex;gap:6px;justify-content:flex-end"><button class="btn small" onclick="editExp('${e.id}')">Edit</button><button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`; }).join('');
 }
 
 function updateExpCats() {
@@ -725,8 +742,27 @@ function updateExpCats() {
   document.getElementById('exp-cat').innerHTML = cats.map(c => `<option>${c}</option>`).join('') || '<option>Uncategorised</option>';
 }
 
+function editExp(id) {
+  const e = expenditure.find(x => x.id === id); if (!e) return;
+  document.getElementById('exp-modal-title').textContent = 'Edit expenditure';
+  document.getElementById('exp-edit-id').value = id;
+  document.getElementById('exp-date').value = e.date || '';
+  document.getElementById('exp-fund').value = e.fund || 'sc';
+  updateExpCats();
+  document.getElementById('exp-cat').value = e.category || '';
+  document.getElementById('exp-desc').value = e.description || '';
+  document.getElementById('exp-amount').value = e.amount || '';
+  document.getElementById('exp-supplier').value = e.supplier || '';
+  document.getElementById('exp-payment-date').value = e.payment_date || '';
+  document.getElementById('exp-invoice').value = '';
+  document.getElementById('invoice-drop-label').textContent = e.invoice_gcs_path ? '📄 Invoice already attached' : 'Drop a file here or click to browse';
+  document.getElementById('invoice-drop-zone').classList.toggle('has-file', !!e.invoice_gcs_path);
+  openModal('exp-modal');
+}
+
 async function saveExpenditure() {
   const btn = document.getElementById('exp-save-btn');
+  const editId = document.getElementById('exp-edit-id').value;
   const exp = {
     date: document.getElementById('exp-date').value,
     fund: document.getElementById('exp-fund').value,
@@ -734,24 +770,32 @@ async function saveExpenditure() {
     category: document.getElementById('exp-cat').value,
     amount: Number(document.getElementById('exp-amount').value) || 0,
     supplier: document.getElementById('exp-supplier').value,
+    payment_date: document.getElementById('exp-payment-date').value || null,
   };
   if (!exp.date || !exp.description || !exp.amount) { toast('Please fill in date, description and amount.', true); return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...';
   try {
-    const saved = await api('POST', `/api/${year}/expenditure`, exp);
+    let saved;
+    if (editId) {
+      saved = await api('PUT', `/api/${year}/expenditure/${editId}`, exp);
+      const idx = expenditure.findIndex(x => x.id === editId);
+      if (idx >= 0) { saved.invoice_gcs_path = expenditure[idx].invoice_gcs_path; expenditure[idx] = saved; }
+    } else {
+      saved = await api('POST', `/api/${year}/expenditure`, exp);
+      expenditure.unshift(saved);
+    }
     const file = document.getElementById('exp-invoice').files[0];
     if (file) {
       const form = new FormData();
       form.append('file', file);
       const res = await fetch(`/api/${year}/expenditure/${saved.id}/invoice`, { method: 'POST', body: form });
       if (!res.ok) toast('Expenditure saved but invoice upload failed.', true);
-      else saved.invoice_gcs_path = true;
+      else { const idx = expenditure.findIndex(x => x.id === saved.id); if (idx >= 0) expenditure[idx].invoice_gcs_path = true; }
     }
-    expenditure.unshift(saved);
     closeModal('exp-modal');
     renderExpTable();
     renderDashboard();
-    toast(file ? 'Expenditure and invoice saved' : 'Expenditure saved');
+    toast('Expenditure saved');
   } catch (e) { toast('Failed: ' + e.message, true); }
   btn.disabled = false; btn.textContent = 'Save';
 }
@@ -802,11 +846,11 @@ async function saveFlat() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     if (editId) {
-      const u = await api('PUT', `/api/${year}/flats/${editId}`, f);
+      const u = await api('PUT', `/api/flats/${editId}`, f);
       const idx = flats.findIndex(x => x.id === editId);
       if (idx >= 0) flats[idx] = u;
     } else {
-      flats.push(await api('POST', `/api/${year}/flats/`, f));
+      flats.push(await api('POST', `/api/flats/`, f));
     }
     closeModal('flat-modal'); renderFlatsTable(); renderDashboard(); toast('Flat saved');
   } catch(e) { toast('Failed: ' + e.message, true); }
@@ -815,7 +859,7 @@ async function saveFlat() {
 
 async function deleteFlat(id) {
   if (!confirm('Delete this flat?')) return;
-  try { await api('DELETE', `/api/${year}/flats/${id}`); flats = flats.filter(f => f.id !== id); renderFlatsTable(); renderDashboard(); toast('Deleted'); }
+  try { await api('DELETE', `/api/flats/${id}`); flats = flats.filter(f => f.id !== id); renderFlatsTable(); renderDashboard(); toast('Deleted'); }
   catch(e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -861,11 +905,11 @@ async function saveLeaseholder() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     if (editId) {
-      const u = await api('PUT', `/api/${year}/leaseholders/${editId}`, lh);
+      const u = await api('PUT', `/api/leaseholders/${editId}`, lh);
       const idx = leaseholders.findIndex(l => l.id === editId);
       if (idx >= 0) leaseholders[idx] = u;
     } else {
-      leaseholders.push(await api('POST', `/api/${year}/leaseholders/`, lh));
+      leaseholders.push(await api('POST', `/api/leaseholders/`, lh));
     }
     closeModal('lh-modal'); renderLHTable(); renderFlatsTable(); toast('Leaseholder saved');
   } catch (e) { toast('Failed: ' + e.message, true); }
@@ -874,7 +918,7 @@ async function saveLeaseholder() {
 
 async function deleteLH(id) {
   if (!confirm('Delete this leaseholder?')) return;
-  try { await api('DELETE', `/api/${year}/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); renderFlatsTable(); toast('Deleted'); }
+  try { await api('DELETE', `/api/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); renderFlatsTable(); toast('Deleted'); }
   catch (e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -965,7 +1009,7 @@ function renderRecon() {
 }
 
 function openModal(id) {
-  if (id === 'exp-modal') { document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; document.getElementById('exp-invoice').value=''; document.getElementById('invoice-drop-label').textContent = 'Drop a file here or click to browse'; document.getElementById('invoice-drop-zone').classList.remove('has-file'); updateExpCats(); }
+  if (id === 'exp-modal') { document.getElementById('exp-modal-title').textContent = 'Log expenditure'; document.getElementById('exp-edit-id').value = ''; document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; document.getElementById('exp-payment-date').value=''; document.getElementById('exp-invoice').value=''; document.getElementById('invoice-drop-label').textContent = 'Drop a file here or click to browse'; document.getElementById('invoice-drop-zone').classList.remove('has-file'); updateExpCats(); }
   document.getElementById(id).classList.add('open');
 }
 
@@ -977,7 +1021,30 @@ document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('c
   const zone = document.getElementById('invoice-drop-zone');
   const input = document.getElementById('exp-invoice');
   const label = document.getElementById('invoice-drop-label');
-  const setFile = file => { label.textContent = file ? '📄 ' + file.name : 'Drop a file here or click to browse'; zone.classList.toggle('has-file', !!file); };
+  const setFile = async (file) => {
+    label.textContent = file ? '📄 ' + file.name : 'Drop a file here or click to browse';
+    zone.classList.toggle('has-file', !!file);
+    if (file && file.type === 'application/pdf') {
+      label.textContent = '⏳ Parsing invoice...';
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(`/api/${year}/expenditure/parse-invoice`, { method: 'POST', body: form });
+        if (res.ok) {
+          const p = await res.json();
+          if (p.invoice_date && !document.getElementById('exp-date').value)
+            document.getElementById('exp-date').value = p.invoice_date;
+          if (p.amount && !document.getElementById('exp-amount').value)
+            document.getElementById('exp-amount').value = p.amount;
+          if (p.supplier && !document.getElementById('exp-supplier').value)
+            document.getElementById('exp-supplier').value = p.supplier;
+          if (p.description && !document.getElementById('exp-desc').value)
+            document.getElementById('exp-desc').value = p.description;
+        }
+      } catch (_) {}
+      label.textContent = '📄 ' + file.name;
+    }
+  };
   input.addEventListener('change', () => setFile(input.files[0] || null));
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));

@@ -40,6 +40,7 @@ class Expenditure(BaseModel):
     amount: float = Field(gt=0)
     supplier: Optional[str] = None
     invoice_url: Optional[str] = None  # GCS signed URL stored after upload
+    payment_date: Optional[str] = None  # ISO date — when cash left the account
 
 
 class Payment(BaseModel):

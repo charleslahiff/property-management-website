@@ -1,6 +1,18 @@
+# Environment
 .env
+*.env.local
+
+# Secrets / credentials
+*.json
+service-account*.json
+credentials*.json
+
+# Python
 __pycache__/
 *.pyc
 .venv/
 *.egg-info/
+
+# OS
 .DS_Store
+Thumbs.db

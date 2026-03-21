@@ -3,29 +3,29 @@ from backend.firestore import get_db
 from backend.models import Leaseholder
 import uuid
 
-router = APIRouter(prefix="/api/{year}/leaseholders", tags=["leaseholders"])
+router = APIRouter(prefix="/api/leaseholders", tags=["leaseholders"])
 
 
-def _col(year: str):
-    return get_db().collection("years").document(year).collection("leaseholders")
+def _col():
+    return get_db().collection("leaseholders")
 
 
 @router.get("/")
-async def list_leaseholders(year: str):
-    docs = _col(year).stream()
+async def list_leaseholders():
+    docs = _col().stream()
     return [{"id": d.id, **d.to_dict()} for d in docs]
 
 
 @router.post("/")
-async def create_leaseholder(year: str, lh: Leaseholder):
+async def create_leaseholder(lh: Leaseholder):
     lh.id = str(uuid.uuid4())
-    _col(year).document(lh.id).set(lh.model_dump(exclude={"id"}))
+    _col().document(lh.id).set(lh.model_dump(exclude={"id"}))
     return lh
 
 
 @router.put("/{lh_id}")
-async def update_leaseholder(year: str, lh_id: str, lh: Leaseholder):
-    ref = _col(year).document(lh_id)
+async def update_leaseholder(lh_id: str, lh: Leaseholder):
+    ref = _col().document(lh_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Leaseholder not found")
     ref.set(lh.model_dump(exclude={"id"}))
@@ -33,8 +33,8 @@ async def update_leaseholder(year: str, lh_id: str, lh: Leaseholder):
 
 
 @router.delete("/{lh_id}")
-async def delete_leaseholder(year: str, lh_id: str):
-    ref = _col(year).document(lh_id)
+async def delete_leaseholder(lh_id: str):
+    ref = _col().document(lh_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Leaseholder not found")
     ref.delete()

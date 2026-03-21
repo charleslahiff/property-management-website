@@ -6,7 +6,7 @@ import os, uuid, datetime
 
 router = APIRouter(prefix="/api/{year}", tags=["charges"])
 
-GCS_BUCKET = os.environ.get("GCS_BUCKET_NAME", "block-management-docs")
+GCS_BUCKET = os.environ.get("GCS_BUCKET_NAME", "lahiff-management-docs")
 
 
 def _year_doc(year: str):
@@ -51,6 +51,15 @@ async def create_expenditure(year: str, exp: Expenditure):
     return exp
 
 
+@router.put("/expenditure/{exp_id}")
+async def update_expenditure(year: str, exp_id: str, exp: Expenditure):
+    ref = _exp_col(year).document(exp_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Expenditure not found")
+    ref.update(exp.model_dump(exclude={"id"}, exclude_none=False))
+    return {"id": exp_id, **exp.model_dump(exclude={"id"})}
+
+
 @router.delete("/expenditure/{exp_id}")
 async def delete_expenditure(year: str, exp_id: str):
     ref = _exp_col(year).document(exp_id)
@@ -58,6 +67,48 @@ async def delete_expenditure(year: str, exp_id: str):
         raise HTTPException(status_code=404, detail="Expenditure not found")
     ref.delete()
     return {"deleted": exp_id}
+
+
+# ---- Invoice parsing ----
+
+@router.post("/expenditure/parse-invoice")
+async def parse_invoice(file: UploadFile = File(...)):
+    """Extract invoice fields from a PDF using the Claude API."""
+    import pdfplumber, io, anthropic, json as _json
+
+    contents = await file.read()
+    text = ""
+    try:
+        with pdfplumber.open(io.BytesIO(contents)) as pdf:
+            for page in pdf.pages:
+                text += (page.extract_text() or "") + "\n"
+    except Exception:
+        return {}
+
+    if not text.strip():
+        return {}  # scanned/image-only PDF — caller falls back to manual entry
+
+    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=256,
+        messages=[{
+            "role": "user",
+            "content": (
+                "Extract fields from this invoice text. "
+                "Reply with JSON only, no explanation: "
+                '{"invoice_date": "YYYY-MM-DD or null", '
+                '"amount": number_or_null, '
+                '"supplier": "string or null", '
+                '"description": "string or null"}\n\n'
+                + text[:4000]
+            )
+        }]
+    )
+    try:
+        return _json.loads(msg.content[0].text)
+    except Exception:
+        return {}
 
 
 # ---- Invoice upload ----

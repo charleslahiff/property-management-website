@@ -22,6 +22,7 @@ steps:
       - '--platform=managed'
       - '--no-allow-unauthenticated'
       - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID'
+      - '--set-secrets=GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest'
 
 images:
   - 'gcr.io/$PROJECT_ID/block-management:$COMMIT_SHA'
