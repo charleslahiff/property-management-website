@@ -368,8 +368,9 @@
       <div class="tab" onclick="filterCharges('unpaid',this)">Unpaid / partial</div>
       <div class="tab" onclick="filterCharges('paid',this)">Paid</div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center">
       <button class="btn primary small" onclick="openAddIncome(null,'sc')">+ Log payment</button>
+      <button class="btn small" onclick="downloadAllDemands()">Download all demands</button>
       <div class="hint" id="charges-collected-hint"></div>
     </div>
   </div>
@@ -585,6 +586,12 @@
     <div class="form-row">
       <div class="form-group"><label class="form-label">Company number <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="text" id="block-company-number" placeholder="e.g. 12345678"></div>
       <div class="form-group"><label class="form-label">Website / URL <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="url" id="block-url" placeholder="https://..."></div>
+    </div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:14px 0 6px">Bank account — printed on demand letters</div>
+    <div class="form-group"><label class="form-label">Account name</label><input class="form-input" type="text" id="block-bank-name" placeholder="e.g. Eagle Court Management"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Sort code</label><input class="form-input" type="text" id="block-sort-code" placeholder="00-00-00"></div>
+      <div class="form-group"><label class="form-label">Account number</label><input class="form-input" type="text" id="block-account-number" placeholder="00000000"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('block-modal')">Cancel</button>
@@ -1165,8 +1172,9 @@ function renderCharges() {
       const rfPaid = income.filter(t => t.type==='leaseholder' && t.flat_id===f.id && t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
       const scOut = scOwed - scPaid, rfOut = rfOwed - rfPaid;
       const txnCount = income.filter(t => t.type==='leaseholder' && t.flat_id===f.id).length;
-      const btnPay  = `<button class="btn small" onclick="openAddIncome('${f.id}','sc')">+ Pay</button>`;
-      const btnHist = `<button class="btn small" onclick="openIncomeHistory('${f.id}')">${txnCount > 0 ? txnCount+' txn'+(txnCount>1?'s':'') : 'History'}</button>`;
+      const btnPay    = `<button class="btn small" onclick="openAddIncome('${f.id}','sc')">+ Pay</button>`;
+      const btnHist   = `<button class="btn small" onclick="openIncomeHistory('${f.id}')">${txnCount > 0 ? txnCount+' txn'+(txnCount>1?'s':'') : 'History'}</button>`;
+      const btnDemand = `<button class="btn small" onclick="downloadDemand('${f.id}')">Demand</button>`;
       const pro = calcProration(f);
 
       if (!pro || !pro.isProrated) {
@@ -1179,7 +1187,7 @@ function renderCharges() {
           <td class="mono" style="color:${scOut>0?'var(--danger)':'var(--accent)'}">${fmt(scOut)}</td>
           <td class="mono">${fmt(rfOwed)}</td><td class="mono">${fmt(rfPaid)}</td>
           <td class="mono" style="color:${rfOut>0?'var(--danger)':'var(--accent)'}">${fmt(rfOut)}</td>
-          <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}</td>
+          <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}${btnDemand}</td>
         </tr>`;
       } else {
         // Prorated: flat summary row + per-leaseholder sub-rows
@@ -1191,7 +1199,7 @@ function renderCharges() {
           <td class="mono" style="color:${scOut>0?'var(--danger)':'var(--accent)'}">${fmt(scOut)}</td>
           <td class="mono">${fmt(rfOwed)}</td><td class="mono">${fmt(rfPaid)}</td>
           <td class="mono" style="color:${rfOut>0?'var(--danger)':'var(--accent)'}">${fmt(rfOut)}</td>
-          <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}</td>
+          <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}${btnDemand}</td>
         </tr>`;
         for (const { lh, days, fraction } of pro.entries) {
           const scP = scOwed * fraction, rfP = rfOwed * fraction;
@@ -1302,6 +1310,16 @@ async function deleteIncome(id, flatId) {
     if (active?.id === 'page-income') renderIncome();
     toast('Deleted');
   } catch (e) { toast('Failed: ' + e.message, true); }
+}
+
+function downloadDemand(flatId) {
+  const url = `${yearBase()}/demands/${flatId}`;
+  const a = document.createElement('a'); a.href = url; a.download = ''; a.click();
+}
+
+function downloadAllDemands() {
+  const url = `${yearBase()}/demands`;
+  const a = document.createElement('a'); a.href = url; a.download = ''; a.click();
 }
 
 let incomeFilter = 'all';
@@ -1476,7 +1494,7 @@ function renderSettings() {
 function openBlockModal() {
   document.getElementById('block-modal-title').textContent = 'Add block';
   document.getElementById('block-edit-id').value = '';
-  ['block-name','block-address','block-company-number','block-url'].forEach(id => document.getElementById(id).value = '');
+  ['block-name','block-address','block-company-number','block-url','block-bank-name','block-sort-code','block-account-number'].forEach(id => document.getElementById(id).value = '');
   openModal('block-modal');
 }
 
@@ -1488,6 +1506,9 @@ function editBlock(id) {
   document.getElementById('block-address').value = b.address || '';
   document.getElementById('block-company-number').value = b.company_number || '';
   document.getElementById('block-url').value = b.url || '';
+  document.getElementById('block-bank-name').value = b.bank_account_name || '';
+  document.getElementById('block-sort-code').value = b.bank_sort_code || '';
+  document.getElementById('block-account-number').value = b.bank_account_number || '';
   openModal('block-modal');
 }
 
@@ -1499,6 +1520,9 @@ async function saveBlock() {
     address: document.getElementById('block-address').value.trim() || null,
     company_number: document.getElementById('block-company-number').value.trim() || null,
     url: document.getElementById('block-url').value.trim() || null,
+    bank_account_name: document.getElementById('block-bank-name').value.trim() || null,
+    bank_sort_code: document.getElementById('block-sort-code').value.trim() || null,
+    bank_account_number: document.getElementById('block-account-number').value.trim() || null,
   };
   if (!data.name) { toast('Block name is required.', true); return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
