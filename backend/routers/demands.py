@@ -236,33 +236,26 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     pdf.ln(8)
 
     # ── Leaseholder address (left) + dates (right) ────────────────
-    # We print the address lines, then go back and place the dates
-    # at the same vertical band using absolute positioning.
-    addr_y = pdf.get_y()
-
     flat_addr_lines = [lh_name]
-    if building_name:
-        flat_addr_lines.append(f"{flat_name} {building_name}")
-    else:
-        flat_addr_lines.append(flat_name)
+    flat_addr_lines.append(f"{flat_name} {building_name}" if building_name else flat_name)
     flat_addr_lines.extend(address_lines)
 
-    pdf.set_font("Helvetica", "", 11)
-    for line in flat_addr_lines:
-        pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
-
-    after_addr_y = pdf.get_y()
-
-    # Print dates right-aligned at addr_y
-    date_y = addr_y + 6 * (len(flat_addr_lines) - 2)  # roughly middle of address block
-    pdf.set_xy(20, date_y)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 6, f"Invoice date: {invoice_date_str}", align="R", new_x="LMARGIN", new_y="NEXT")
+    date_lines = [f"Invoice date: {invoice_date_str}"]
     if due_display:
-        pdf.set_x(20)
-        pdf.cell(0, 6, f"Payment due date: {due_display}", align="R", new_x="LMARGIN", new_y="NEXT")
+        date_lines.append(f"Payment due date: {due_display}")
 
-    pdf.set_y(max(after_addr_y, pdf.get_y()) + 8)
+    left_w = 110
+    right_w = 60
+    n_rows = max(len(flat_addr_lines), len(date_lines))
+
+    pdf.set_font("Helvetica", "", 11)
+    for i in range(n_rows):
+        addr = flat_addr_lines[i] if i < len(flat_addr_lines) else ""
+        date = date_lines[i] if i < len(date_lines) else ""
+        pdf.cell(left_w, 6, addr)
+        pdf.cell(right_w, 6, date, align="R", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(8)
 
     # ── Title ─────────────────────────────────────────────────────
     pdf.set_font("Helvetica", "", 12)
@@ -337,6 +330,7 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     pdf.cell(0, 6, "Statutory Information", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
     pdf.set_font("Helvetica", "", 11)
+    pdf.set_x(pdf.l_margin)
     pdf.multi_cell(
         0, 6,
         "In accordance with Sections 47 and 48 of the Landlord and Tenant Act 1987, "
@@ -344,10 +338,12 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
         "proceedings) is:",
     )
     pdf.ln(2)
+    pdf.set_x(pdf.l_margin)
     pdf.cell(0, 6, block_name, new_x="LMARGIN", new_y="NEXT")
     for line in address_lines:
         pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
+    pdf.set_x(pdf.l_margin)
     pdf.multi_cell(
         0, 6,
         "The service charge monies are held in a dedicated trust account in accordance "
@@ -362,7 +358,7 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
 
     for number, text in _STATUTORY_POINTS:
         pdf.set_font("Helvetica", "", 11)
-        # Print number and text together — multi_cell handles wrapping
+        pdf.set_x(pdf.l_margin)
         pdf.multi_cell(0, 6, f"{number} {text}")
 
     return bytes(pdf.output())
