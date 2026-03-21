@@ -27,8 +27,9 @@
 
   nav { width: 220px; flex-shrink: 0; background: var(--ink); color: var(--paper); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
   .nav-brand { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .nav-brand h1 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 300; color: var(--paper); letter-spacing: 0.01em; line-height: 1.3; }
+  .nav-brand h1 { font-family: 'Fraunces', serif; font-size: 14px; font-weight: 300; color: var(--paper); letter-spacing: 0.01em; line-height: 1.3; }
   .nav-brand p { font-size: 10px; color: rgba(247,245,240,0.4); margin-top: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .block-select { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 8px; width: 100%; margin-top: 6px; cursor: pointer; outline: none; }
   .nav-items { padding: 12px 0; flex: 1; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; color: rgba(247,245,240,0.55); font-size: 12px; letter-spacing: 0.02em; transition: all 0.15s; border-left: 2px solid transparent; }
   .nav-item:hover { color: var(--paper); background: rgba(255,255,255,0.05); }
@@ -163,7 +164,7 @@
 
 <nav>
   <div class="nav-brand">
-    <h1>Block Management</h1>
+    <h1 id="nav-block-name">Block Management</h1>
     <p>Service charges</p>
   </div>
   <div class="nav-items">
@@ -195,14 +196,20 @@
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/><circle cx="8" cy="8" r="6"/></svg>
       Year-end recon
     </div>
+    <div class="nav-item" onclick="showPage('income')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M4 10l4 4 4-4"/><path d="M2 6h12"/></svg>
+      Income
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+      Settings
+    </div>
   </div>
   <div class="nav-year">
-    <div>Financial year</div>
-    <select class="year-select" id="yearSelect" onchange="changeYear(this.value)">
-      <option value="2024">2024/25</option>
-      <option value="2025" selected>2025/26</option>
-      <option value="2026">2026/27</option>
-    </select>
+    <div id="block-selector-label" style="font-size:10px;color:rgba(247,245,240,0.35);margin-bottom:4px">Block</div>
+    <div id="block-selector-wrap"></div>
+    <div style="margin-top:12px;font-size:11px;color:rgba(247,245,240,0.35)">Financial year</div>
+    <select class="year-select" id="yearSelect" onchange="changeYear(this.value)"></select>
   </div>
 </nav>
 
@@ -354,18 +361,21 @@
 
 <!-- CHARGE SCHEDULE -->
 <div class="page" id="page-charges">
-  <div class="page-header"><h2>Charge schedule</h2><p>Individual charges and payment status for each leaseholder</p></div>
+  <div class="page-header"><h2>Charge schedule</h2><p>Payment summary for each flat — owed, received, and outstanding</p></div>
   <div class="action-bar">
     <div class="tabs">
       <div class="tab active" onclick="filterCharges('all',this)">All</div>
-      <div class="tab" onclick="filterCharges('unpaid',this)">Unpaid</div>
+      <div class="tab" onclick="filterCharges('unpaid',this)">Unpaid / partial</div>
       <div class="tab" onclick="filterCharges('paid',this)">Paid</div>
     </div>
-    <div class="hint" id="charges-collected-hint"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn primary small" onclick="openAddIncome(null,'sc')">+ Log payment</button>
+      <div class="hint" id="charges-collected-hint"></div>
+    </div>
   </div>
   <div class="card">
-    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC charge</th><th>RF charge</th><th>Total</th><th>SC status</th><th>RF status</th><th>SC received</th><th>RF received</th><th></th></tr></thead>
-    <tbody id="charges-table-body"><tr><td colspan="10" class="empty"><p>Add leaseholders and set a budget to generate the charge schedule.</p></td></tr></tbody></table>
+    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC owed</th><th>SC paid</th><th>SC outstanding</th><th>RF owed</th><th>RF paid</th><th>RF outstanding</th><th></th></tr></thead>
+    <tbody id="charges-table-body"><tr><td colspan="9" class="empty"><p>Add leaseholders and set a budget to generate the charge schedule.</p></td></tr></tbody></table>
   </div>
 </div>
 
@@ -398,6 +408,41 @@
     <tbody id="r-lh-table"></tbody></table>
   </div>
   <div style="margin-top:16px"><button class="btn" onclick="window.print()">Print / save PDF</button></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div class="page-header"><h2>Settings</h2><p>Manage blocks and financial years</p></div>
+  <div class="two-col" style="align-items:start">
+    <div class="card">
+      <div class="card-title">Blocks</div>
+      <div id="settings-blocks-list" style="margin-bottom:16px"></div>
+      <button class="btn primary small" onclick="openBlockModal()">+ Add block</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Financial years — <span id="settings-year-block-name" style="font-weight:400;text-transform:none;letter-spacing:0"></span></div>
+      <div id="settings-years-list" style="margin-bottom:16px"></div>
+      <button class="btn primary small" onclick="openYearModal()">+ Add financial year</button>
+    </div>
+  </div>
+</div>
+
+<!-- INCOME -->
+<div class="page" id="page-income">
+  <div class="page-header"><h2>Income</h2><p>All money received — leaseholder payments, interest, and other income</p></div>
+  <div class="action-bar">
+    <div class="tabs">
+      <div class="tab active" onclick="filterIncome('all',this)">All</div>
+      <div class="tab" onclick="filterIncome('leaseholder',this)">Leaseholder</div>
+      <div class="tab" onclick="filterIncome('interest',this)">Interest</div>
+      <div class="tab" onclick="filterIncome('other',this)">Other</div>
+    </div>
+    <button class="btn primary" onclick="openAddIncome(null,'sc')">+ Log income</button>
+  </div>
+  <div class="card">
+    <table><thead><tr><th>Date</th><th>Type</th><th>Fund</th><th>Flat / description</th><th>Charge year</th><th>Reference</th><th>Amount</th><th></th></tr></thead>
+    <tbody id="income-table-body"><tr><td colspan="8" class="empty"><p>No income recorded yet.</p></td></tr></tbody></table>
+  </div>
 </div>
 
 </main>
@@ -476,26 +521,90 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="pay-modal">
-  <div class="modal" style="width:380px">
-    <div class="modal-header"><div class="modal-title">Update payment</div><button class="modal-close" onclick="closeModal('pay-modal')">×</button></div>
-    <div class="form-group"><label class="form-label">Flat / Leaseholder</label><div id="pay-lh-name" style="font-size:14px;padding:4px 0"></div></div>
+<div class="modal-overlay" id="add-income-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header"><div class="modal-title" id="add-income-title">Log income</div><button class="modal-close" onclick="closeModal('add-income-modal')">×</button></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">SC payment status</label>
-        <select class="form-input form-select" id="pay-sc-status"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+      <div class="form-group"><label class="form-label">Type</label>
+        <select class="form-input form-select" id="income-type" onchange="updateIncomeForm()">
+          <option value="leaseholder">Leaseholder payment</option>
+          <option value="interest">Interest</option>
+          <option value="other">Other</option>
+        </select>
       </div>
-      <div class="form-group"><label class="form-label">RF payment status</label>
-        <select class="form-input form-select" id="pay-rf-status"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+      <div class="form-group"><label class="form-label">Fund</label>
+        <select class="form-input form-select" id="income-fund">
+          <option value="sc">Service charge (SC)</option>
+          <option value="rf">Reserve fund (RF)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" id="income-flat-group"><label class="form-label">Flat</label>
+      <select class="form-input form-select" id="income-flat-id"></select>
+    </div>
+    <div class="form-group" id="income-desc-group" style="display:none"><label class="form-label">Description</label>
+      <input class="form-input" type="text" id="income-desc" placeholder="e.g. Bank interest on reserve fund">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount (£)</label>
+        <input class="form-input" type="number" step="0.01" id="income-amount" placeholder="0.00">
+      </div>
+      <div class="form-group"><label class="form-label">Date received</label>
+        <input class="form-input" type="date" id="income-date">
       </div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">SC received date</label><input class="form-input" type="date" id="pay-sc-date"></div>
-      <div class="form-group"><label class="form-label">RF received date</label><input class="form-input" type="date" id="pay-rf-date"></div>
+      <div class="form-group"><label class="form-label">Charge year</label>
+        <select class="form-input form-select" id="income-charge-year"></select>
+      </div>
+      <div class="form-group"><label class="form-label">Reference <span style="color:var(--ink-3);font-weight:400">(optional)</span></label>
+        <input class="form-input" type="text" id="income-reference" placeholder="e.g. bank ref">
+      </div>
     </div>
-    <input type="hidden" id="pay-flat-id">
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('pay-modal')">Cancel</button>
-      <button class="btn primary" id="pay-save-btn" onclick="savePayment()">Update</button>
+      <button class="btn" onclick="closeModal('add-income-modal')">Cancel</button>
+      <button class="btn primary" id="income-save-btn" onclick="saveIncome()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="income-history-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="income-history-title">Payment history</div><button class="modal-close" onclick="closeModal('income-history-modal')">×</button></div>
+    <table><thead><tr><th>Date</th><th>Fund</th><th>Amount</th><th>Charge year</th><th>Reference</th><th></th></tr></thead>
+    <tbody id="income-history-body"></tbody></table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="block-modal">
+  <div class="modal" style="width:440px">
+    <div class="modal-header"><div class="modal-title" id="block-modal-title">Add block</div><button class="modal-close" onclick="closeModal('block-modal')">×</button></div>
+    <input type="hidden" id="block-edit-id">
+    <div class="form-group"><label class="form-label">Block name</label><input class="form-input" type="text" id="block-name" placeholder="e.g. Eagle Court Management (Hornsey) Limited"></div>
+    <div class="form-group"><label class="form-label">Address <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="text" id="block-address" placeholder="e.g. 1–12 Eagle Court, London N8 0AA"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Company number <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="text" id="block-company-number" placeholder="e.g. 12345678"></div>
+      <div class="form-group"><label class="form-label">Website / URL <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="url" id="block-url" placeholder="https://..."></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('block-modal')">Cancel</button>
+      <button class="btn primary" id="block-save-btn" onclick="saveBlock()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="year-modal">
+  <div class="modal" style="width:440px">
+    <div class="modal-header"><div class="modal-title" id="year-modal-title">Add financial year</div><button class="modal-close" onclick="closeModal('year-modal')">×</button></div>
+    <input type="hidden" id="year-edit-id">
+    <div class="form-group"><label class="form-label">Label</label><input class="form-input" type="text" id="year-label" placeholder="e.g. 2025/26" oninput="autoFillYearDates(this.value)"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start date</label><input class="form-input" type="date" id="year-start"></div>
+      <div class="form-group"><label class="form-label">End date</label><input class="form-input" type="date" id="year-end"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('year-modal')">Cancel</button>
+      <button class="btn primary" id="year-save-btn" onclick="saveYear()">Save</button>
     </div>
   </div>
 </div>
@@ -503,14 +612,21 @@
 <div class="toast" id="toast"></div>
 
 <script>
-let year = '2025';
+let block = null;
+let blocks = [];
+let years = [];
+let year = null;
 let budget = { sc: 0, rf: 0, sc_notes: '', rf_notes: '', billing_freq: 'annual', due_date: '', sc_categories: ['Insurance','Repairs','Cleaning','Utilities','Management','Other'], rf_categories: ['Major works','Contingency','Other'] };
 let flats = [];
 let leaseholders = [];
 let expenditure = [];
 let payments = {};
+let income = [];
 let expFilter = 'all';
 let chargeFilter = 'all';
+
+function blockBase() { return `/api/blocks/${block.id}`; }
+function yearBase() { return `${blockBase()}/years/${year}`; }
 
 async function api(method, path, body = null) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -534,26 +650,92 @@ function activeLH(flatId) { const t = new Date().toISOString().slice(0,10); retu
 function effSC(p) { return Number(budget.sc||0) === 0 ? 'paid' : (p.sc_status||'unpaid'); }
 function effRF(p) { return Number(budget.rf||0) === 0 ? 'paid' : (p.rf_status||'unpaid'); }
 
+function derivePayments() {
+  payments = {};
+  flats.forEach(flat => {
+    const scOwed = Number(budget.sc || 0) * (Number(flat.sc_share) || 0) / 100;
+    const rfOwed = Number(budget.rf || 0) * (Number(flat.rf_share) || 0) / 100;
+    const scPaid = income.filter(t => t.type === 'leaseholder' && t.flat_id === flat.id && t.fund === 'sc').reduce((s, t) => s + Number(t.amount), 0);
+    const rfPaid = income.filter(t => t.type === 'leaseholder' && t.flat_id === flat.id && t.fund === 'rf').reduce((s, t) => s + Number(t.amount), 0);
+    const lastSC = income.filter(t => t.type === 'leaseholder' && t.flat_id === flat.id && t.fund === 'sc').sort((a, b) => b.date.localeCompare(a.date))[0];
+    const lastRF = income.filter(t => t.type === 'leaseholder' && t.flat_id === flat.id && t.fund === 'rf').sort((a, b) => b.date.localeCompare(a.date))[0];
+    payments[flat.id] = {
+      flat_id: flat.id,
+      sc_status: scPaid <= 0 ? 'unpaid' : scPaid >= scOwed ? 'paid' : 'partial',
+      rf_status: rfPaid <= 0 ? 'unpaid' : rfPaid >= rfOwed ? 'paid' : 'partial',
+      sc_received_date: lastSC?.date || null,
+      rf_received_date: lastRF?.date || null,
+    };
+  });
+}
+
+function autoSelectYear() {
+  if (!years.length) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const current = years.find(y => y.start_date <= today && y.end_date >= today);
+  if (current) return current.id;
+  return [...years].sort((a, b) => b.end_date.localeCompare(a.end_date))[0].id;
+}
+
+function renderYearSelect() {
+  const sel = document.getElementById('yearSelect');
+  sel.innerHTML = [...years]
+    .sort((a, b) => b.end_date.localeCompare(a.end_date))
+    .map(y => `<option value="${y.id}"${y.id === year ? ' selected' : ''}>${y.label}</option>`)
+    .join('') || '<option value="">No years defined</option>';
+}
+
+function renderBlockSelector() {
+  const wrap = document.getElementById('block-selector-wrap');
+  if (blocks.length <= 1) {
+    wrap.innerHTML = `<div style="font-size:11px;color:rgba(247,245,240,0.7);padding:2px 0">${block?.name || '—'}</div>`;
+  } else {
+    wrap.innerHTML = `<select class="block-select" onchange="changeBlock(this.value)">${
+      blocks.map(b => `<option value="${b.id}"${b.id === block?.id ? ' selected' : ''}>${b.name}</option>`).join('')
+    }</select>`;
+  }
+  document.getElementById('nav-block-name').textContent = block?.name || 'Block Management';
+}
+
 async function loadBuilding() {
   [flats, leaseholders] = await Promise.all([
-    api('GET', `/api/flats/`),
-    api('GET', `/api/leaseholders/`),
+    api('GET', `${blockBase()}/flats/`),
+    api('GET', `${blockBase()}/leaseholders/`),
   ]);
 }
 
 async function loadYear() {
-  [budget, expenditure, payments] = await Promise.all([
-    api('GET', `/api/${year}/budget`),
-    api('GET', `/api/${year}/expenditure`),
-    api('GET', `/api/${year}/payments`),
+  [budget, expenditure, payments, income] = await Promise.all([
+    api('GET', `${yearBase()}/budget`),
+    api('GET', `${yearBase()}/expenditure`),
+    api('GET', `${yearBase()}/payments`),
+    api('GET', `${yearBase()}/income`),
   ]);
+  derivePayments();
   renderDashboard();
+}
+
+async function loadBlock(blockId) {
+  block = blocks.find(b => b.id === blockId);
+  years = await api('GET', `/api/blocks/${blockId}/years/`);
+  year = autoSelectYear();
+  renderBlockSelector();
+  renderYearSelect();
+  await loadBuilding();
+  if (year) await loadYear();
 }
 
 async function loadAll() {
   try {
-    await loadBuilding();
-    await loadYear();
+    blocks = await api('GET', '/api/blocks/');
+    if (!blocks.length) {
+      // Show a prompt to create the first block
+      document.getElementById('nav-block-name').textContent = 'Block Management';
+      document.getElementById('block-selector-wrap').innerHTML = '<div style="font-size:10px;color:rgba(247,245,240,0.5)">No blocks yet</div>';
+      showPage('settings');
+      return;
+    }
+    await loadBlock(blocks[0].id);
   } catch (e) { toast('Failed to load data: ' + e.message, true); }
 }
 
@@ -569,6 +751,8 @@ function showPage(id) {
   if (id === 'leaseholders') renderLHTable();
   if (id === 'charges') renderCharges();
   if (id === 'reconciliation') renderRecon();
+  if (id === 'income') renderIncome();
+  if (id === 'settings') renderSettings();
 }
 
 async function changeYear(y) {
@@ -578,18 +762,22 @@ async function changeYear(y) {
   showPage(active ? active.id.replace('page-', '') : 'dashboard');
 }
 
+async function changeBlock(blockId) {
+  flats = []; leaseholders = []; years = []; year = null;
+  budget = { sc: 0, rf: 0, sc_notes: '', rf_notes: '', billing_freq: 'annual', due_date: '', sc_categories: ['Insurance','Repairs','Cleaning','Utilities','Management','Other'], rf_categories: ['Major works','Contingency','Other'] };
+  expenditure = []; income = []; payments = {};
+  await loadBlock(blockId);
+  showPage('dashboard');
+}
+
 function renderDashboard() {
-  document.getElementById('dash-subtitle').textContent = 'Financial year ' + year + '/' + (parseInt(year) + 1).toString().slice(2);
+  const fy = years.find(y => y.id === year);
+  document.getElementById('dash-subtitle').textContent = 'Financial year ' + (fy ? fy.label : year || '—') + (block ? ' — ' + block.name : '');
   const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
   const scSpent = expenditure.filter(e => e.fund === 'sc').reduce((a, e) => a + Number(e.amount), 0);
   const rfSpent = expenditure.filter(e => e.fund === 'rf').reduce((a, e) => a + Number(e.amount), 0);
-  let scColl = 0, rfColl = 0;
-  flats.forEach(flat => {
-    const p = payments[flat.id] || {};
-    const sc = scB * (Number(flat.sc_share) || 0) / 100, rf = rfB * (Number(flat.rf_share) || 0) / 100;
-    if (effSC(p) === 'paid') scColl += sc; else if (effSC(p) === 'partial') scColl += sc * 0.5;
-    if (effRF(p) === 'paid') rfColl += rf; else if (effRF(p) === 'partial') rfColl += rf * 0.5;
-  });
+  const scColl = income.filter(t => t.fund === 'sc').reduce((s, t) => s + Number(t.amount), 0);
+  const rfColl = income.filter(t => t.fund === 'rf').reduce((s, t) => s + Number(t.amount), 0);
   const scPct = scB > 0 ? Math.round(scSpent / scB * 100) : 0;
   const rfPct = rfB > 0 ? Math.min(Math.round(rfColl / rfB * 100), 100) : 0;
   document.getElementById('stat-sc-budget').textContent = fmtK(scB);
@@ -628,16 +816,16 @@ function renderCharts() {
   const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
   ['sc', 'rf'].forEach(fund => {
     const budgetTotal = fund === 'sc' ? scB : rfB;
-    const incomeEvents = [];
-    flats.forEach(flat => {
-      const p = payments[flat.id] || {};
-      const date = fund === 'sc' ? p.sc_received_date : p.rf_received_date;
-      if (date) {
-        const share = Number(fund === 'sc' ? flat.sc_share : flat.rf_share) || 0;
-        const lh = activeLH(flat.id);
-        incomeEvents.push({ date, amount: budgetTotal * share / 100, label: flat.name + (lh ? ' — ' + lh.name : '') });
-      }
-    });
+    const incomeEvents = income
+      .filter(t => t.fund === fund)
+      .map(t => {
+        if (t.type === 'leaseholder') {
+          const flat = flats.find(f => f.id === t.flat_id);
+          const lh = activeLH(t.flat_id);
+          return { date: t.date, amount: Number(t.amount), label: (flat?.name || '?') + (lh ? ' — ' + lh.name : '') };
+        }
+        return { date: t.date, amount: Number(t.amount), label: t.description || t.type };
+      });
     const spendEvents = expenditure.filter(e => e.fund === fund && (e.payment_date || e.date)).map(e => ({ date: e.payment_date || e.date, amount: Number(e.amount), label: e.description }));
     const allDates = [...new Set([...incomeEvents.map(e => e.date), ...spendEvents.map(e => e.date)])].sort();
     let cumIncome = 0, cumSpend = 0;
@@ -696,7 +884,7 @@ async function saveBudget() {
     budget.rf_notes = document.getElementById('rf-budget-notes').value;
     budget.billing_freq = document.getElementById('billing-freq').value;
     budget.due_date = document.getElementById('billing-date').value;
-    await api('PUT', `/api/${year}/budget`, budget);
+    await api('PUT', `${yearBase()}/budget`, budget);
     toast('Budget saved');
   } catch (e) { toast('Failed: ' + e.message, true); }
   btn.disabled = false; btn.textContent = 'Save budget';
@@ -777,18 +965,18 @@ async function saveExpenditure() {
   try {
     let saved;
     if (editId) {
-      saved = await api('PUT', `/api/${year}/expenditure/${editId}`, exp);
+      saved = await api('PUT', `${yearBase()}/expenditure/${editId}`, exp);
       const idx = expenditure.findIndex(x => x.id === editId);
       if (idx >= 0) { saved.invoice_gcs_path = expenditure[idx].invoice_gcs_path; expenditure[idx] = saved; }
     } else {
-      saved = await api('POST', `/api/${year}/expenditure`, exp);
+      saved = await api('POST', `${yearBase()}/expenditure`, exp);
       expenditure.unshift(saved);
     }
     const file = document.getElementById('exp-invoice').files[0];
     if (file) {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(`/api/${year}/expenditure/${saved.id}/invoice`, { method: 'POST', body: form });
+      const res = await fetch(`${yearBase()}/expenditure/${saved.id}/invoice`, { method: 'POST', body: form });
       if (!res.ok) toast('Expenditure saved but invoice upload failed.', true);
       else { const idx = expenditure.findIndex(x => x.id === saved.id); if (idx >= 0) expenditure[idx].invoice_gcs_path = true; }
     }
@@ -802,7 +990,7 @@ async function saveExpenditure() {
 
 async function deleteExp(id) {
   if (!confirm('Delete this expense?')) return;
-  try { await api('DELETE', `/api/${year}/expenditure/${id}`); expenditure = expenditure.filter(e => e.id !== id); renderExpTable(); renderDashboard(); toast('Deleted'); }
+  try { await api('DELETE', `${yearBase()}/expenditure/${id}`); expenditure = expenditure.filter(e => e.id !== id); renderExpTable(); renderDashboard(); toast('Deleted'); }
   catch (e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -846,11 +1034,11 @@ async function saveFlat() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     if (editId) {
-      const u = await api('PUT', `/api/flats/${editId}`, f);
+      const u = await api('PUT', `${blockBase()}/flats/${editId}`, f);
       const idx = flats.findIndex(x => x.id === editId);
       if (idx >= 0) flats[idx] = u;
     } else {
-      flats.push(await api('POST', `/api/flats/`, f));
+      flats.push(await api('POST', `${blockBase()}/flats/`, f));
     }
     closeModal('flat-modal'); renderFlatsTable(); renderDashboard(); toast('Flat saved');
   } catch(e) { toast('Failed: ' + e.message, true); }
@@ -859,7 +1047,7 @@ async function saveFlat() {
 
 async function deleteFlat(id) {
   if (!confirm('Delete this flat?')) return;
-  try { await api('DELETE', `/api/flats/${id}`); flats = flats.filter(f => f.id !== id); renderFlatsTable(); renderDashboard(); toast('Deleted'); }
+  try { await api('DELETE', `${blockBase()}/flats/${id}`); flats = flats.filter(f => f.id !== id); renderFlatsTable(); renderDashboard(); toast('Deleted'); }
   catch(e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -905,11 +1093,11 @@ async function saveLeaseholder() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     if (editId) {
-      const u = await api('PUT', `/api/leaseholders/${editId}`, lh);
+      const u = await api('PUT', `${blockBase()}/leaseholders/${editId}`, lh);
       const idx = leaseholders.findIndex(l => l.id === editId);
       if (idx >= 0) leaseholders[idx] = u;
     } else {
-      leaseholders.push(await api('POST', `/api/leaseholders/`, lh));
+      leaseholders.push(await api('POST', `${blockBase()}/leaseholders/`, lh));
     }
     closeModal('lh-modal'); renderLHTable(); renderFlatsTable(); toast('Leaseholder saved');
   } catch (e) { toast('Failed: ' + e.message, true); }
@@ -918,7 +1106,7 @@ async function saveLeaseholder() {
 
 async function deleteLH(id) {
   if (!confirm('Delete this leaseholder?')) return;
-  try { await api('DELETE', `/api/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); renderFlatsTable(); toast('Deleted'); }
+  try { await api('DELETE', `${blockBase()}/leaseholders/${id}`); leaseholders = leaseholders.filter(l => l.id !== id); renderLHTable(); renderFlatsTable(); toast('Deleted'); }
   catch (e) { toast('Failed: ' + e.message, true); }
 }
 
@@ -928,59 +1116,227 @@ function filterCharges(f, el) {
   el.classList.add('active'); renderCharges();
 }
 
+// Returns { entries: [{lh, days, fraction}], fyDays, isProrated }
+// "isProrated" = true when there is more than one leaseholder in the year,
+// or a single leaseholder who does not cover the full year (vacancy).
+function calcProration(flat) {
+  const fy = years.find(y => y.id === year);
+  if (!fy) return null;
+  const fyStart = new Date(fy.start_date);
+  const fyEnd = new Date(fy.end_date);
+  const fyDays = Math.round((fyEnd - fyStart) / 86400000) + 1;
+
+  const entries = leaseholders
+    .filter(lh => {
+      if (lh.flat_id !== flat.id) return false;
+      const s = lh.effective_date ? new Date(lh.effective_date) : null;
+      const e = lh.expiry_date   ? new Date(lh.expiry_date)   : null;
+      if (s && s > fyEnd)   return false;  // started after year end
+      if (e && e < fyStart) return false;  // expired before year start
+      return true;
+    })
+    .map(lh => {
+      const start = lh.effective_date ? new Date(Math.max(new Date(lh.effective_date), fyStart)) : fyStart;
+      const end   = lh.expiry_date   ? new Date(Math.min(new Date(lh.expiry_date),   fyEnd))   : fyEnd;
+      const days = Math.max(0, Math.round((end - start) / 86400000) + 1);
+      return { lh, days, fraction: days / fyDays };
+    })
+    .filter(e => e.days > 0)
+    .sort((a, b) => (a.lh.effective_date || '') > (b.lh.effective_date || '') ? 1 : -1);
+
+  const totalFraction = entries.reduce((s, e) => s + e.fraction, 0);
+  const isProrated = entries.length > 1 || totalFraction < 0.999;
+  return { entries, fyDays, isProrated };
+}
+
 function renderCharges() {
   const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
   let fls = sortFlats(flats);
   if (chargeFilter === 'unpaid') fls = fls.filter(f => { const p = payments[f.id]||{}; return effSC(p) !== 'paid' || effRF(p) !== 'paid'; });
-  if (chargeFilter === 'paid') fls = fls.filter(f => { const p = payments[f.id]||{}; return effSC(p) === 'paid' && effRF(p) === 'paid'; });
-  document.getElementById('charges-table-body').innerHTML = fls.length === 0
-    ? '<tr><td colspan="10" class="empty"><p>No charges to display.</p></td></tr>'
-    : fls.map(f => {
-        const sc = scB*(Number(f.sc_share)||0)/100, rf = rfB*(Number(f.rf_share)||0)/100;
-        const p = payments[f.id]||{}, scSt = effSC(p), rfSt = effRF(p);
+  if (chargeFilter === 'paid')   fls = fls.filter(f => { const p = payments[f.id]||{}; return effSC(p) === 'paid' && effRF(p) === 'paid'; });
+
+  if (fls.length === 0) {
+    document.getElementById('charges-table-body').innerHTML = '<tr><td colspan="9" class="empty"><p>No charges to display.</p></td></tr>';
+  } else {
+    let html = '';
+    for (const f of fls) {
+      const scOwed = scB*(Number(f.sc_share)||0)/100, rfOwed = rfB*(Number(f.rf_share)||0)/100;
+      const scPaid = income.filter(t => t.type==='leaseholder' && t.flat_id===f.id && t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
+      const rfPaid = income.filter(t => t.type==='leaseholder' && t.flat_id===f.id && t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
+      const scOut = scOwed - scPaid, rfOut = rfOwed - rfPaid;
+      const txnCount = income.filter(t => t.type==='leaseholder' && t.flat_id===f.id).length;
+      const btnPay  = `<button class="btn small" onclick="openAddIncome('${f.id}','sc')">+ Pay</button>`;
+      const btnHist = `<button class="btn small" onclick="openIncomeHistory('${f.id}')">${txnCount > 0 ? txnCount+' txn'+(txnCount>1?'s':'') : 'History'}</button>`;
+      const pro = calcProration(f);
+
+      if (!pro || !pro.isProrated) {
+        // Simple: single leaseholder covering the full year
         const lh = activeLH(f.id);
-        return `<tr><td>${f.name}</td><td style="color:var(--ink-3)">${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(rf)}</td><td class="mono" style="font-weight:500">${fmt(sc+rf)}</td><td><span class="badge ${scSt}">${scSt}</span></td><td><span class="badge ${rfSt}">${rfSt}</span></td><td>${p.sc_received_date?`<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${f.id}')">${p.sc_received_date}</span>`:`<button class="btn small" onclick="markReceived('${f.id}','sc')">Mark</button>`}</td><td>${p.rf_received_date?`<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${f.id}')">${p.rf_received_date}</span>`:`<button class="btn small" onclick="markReceived('${f.id}','rf')">Mark</button>`}</td><td><button class="btn small" onclick="openPayModal('${f.id}')">Update</button></td></tr>`;
-      }).join('');
-  let scC=0,rfC=0,scT=0,rfT=0;
-  flats.forEach(f => { const p=payments[f.id]||{},sc=scB*(Number(f.sc_share)||0)/100,rf=rfB*(Number(f.rf_share)||0)/100; scT+=sc;rfT+=rf; if(effSC(p)==='paid')scC+=sc;else if(effSC(p)==='partial')scC+=sc*0.5; if(effRF(p)==='paid')rfC+=rf;else if(effRF(p)==='partial')rfC+=rf*0.5; });
+        html += `<tr>
+          <td>${f.name}</td>
+          <td style="color:var(--ink-3)">${lh ? lh.name : '—'}</td>
+          <td class="mono">${fmt(scOwed)}</td><td class="mono">${fmt(scPaid)}</td>
+          <td class="mono" style="color:${scOut>0?'var(--danger)':'var(--accent)'}">${fmt(scOut)}</td>
+          <td class="mono">${fmt(rfOwed)}</td><td class="mono">${fmt(rfPaid)}</td>
+          <td class="mono" style="color:${rfOut>0?'var(--danger)':'var(--accent)'}">${fmt(rfOut)}</td>
+          <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}</td>
+        </tr>`;
+      } else {
+        // Prorated: flat summary row + per-leaseholder sub-rows
+        const uncovered = Math.round((1 - pro.entries.reduce((s,e)=>s+e.fraction,0)) * pro.fyDays);
+        html += `<tr style="background:var(--paper)">
+          <td><strong>${f.name}</strong></td>
+          <td style="font-size:11px;color:var(--ink-3)">${pro.entries.length} leaseholder${pro.entries.length>1?'s':''}${uncovered>0?' · '+uncovered+' days vacant':''}</td>
+          <td class="mono">${fmt(scOwed)}</td><td class="mono">${fmt(scPaid)}</td>
+          <td class="mono" style="color:${scOut>0?'var(--danger)':'var(--accent)'}">${fmt(scOut)}</td>
+          <td class="mono">${fmt(rfOwed)}</td><td class="mono">${fmt(rfPaid)}</td>
+          <td class="mono" style="color:${rfOut>0?'var(--danger)':'var(--accent)'}">${fmt(rfOut)}</td>
+          <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}</td>
+        </tr>`;
+        for (const { lh, days, fraction } of pro.entries) {
+          const scP = scOwed * fraction, rfP = rfOwed * fraction;
+          html += `<tr>
+            <td style="padding-left:22px;color:var(--ink-3)">↳</td>
+            <td>${lh.name} <span style="color:var(--ink-3);font-size:10px">${days} days (${(fraction*100).toFixed(1)}%)</span></td>
+            <td class="mono" style="color:var(--ink-3)">${fmt(scP)}</td><td>—</td><td>—</td>
+            <td class="mono" style="color:var(--ink-3)">${fmt(rfP)}</td><td>—</td><td>—</td>
+            <td></td>
+          </tr>`;
+        }
+        if (uncovered > 0) {
+          html += `<tr>
+            <td style="padding-left:22px;color:var(--ink-3)">↳</td>
+            <td style="color:var(--ink-3);font-style:italic">Vacant <span style="font-size:10px">${uncovered} days (${((uncovered/pro.fyDays)*100).toFixed(1)}%)</span></td>
+            <td class="mono" style="color:var(--ink-3)">${fmt(scOwed*uncovered/pro.fyDays)}</td><td>—</td><td>—</td>
+            <td class="mono" style="color:var(--ink-3)">${fmt(rfOwed*uncovered/pro.fyDays)}</td><td>—</td><td>—</td>
+            <td></td>
+          </tr>`;
+        }
+      }
+    }
+    document.getElementById('charges-table-body').innerHTML = html;
+  }
+
+  const scC = income.filter(t=>t.type==='leaseholder'&&t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
+  const rfC = income.filter(t=>t.type==='leaseholder'&&t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
+  const scT = flats.reduce((s,f)=>s+scB*(Number(f.sc_share)||0)/100,0);
+  const rfT = flats.reduce((s,f)=>s+rfB*(Number(f.rf_share)||0)/100,0);
   document.getElementById('charges-collected-hint').textContent = `SC collected: ${fmt(scC)} of ${fmt(scT)} · RF collected: ${fmt(rfC)} of ${fmt(rfT)}`;
 }
 
-function openPayModal(flatId) {
-  const flat = flats.find(f => f.id === flatId); if (!flat) return;
-  const lh = activeLH(flatId);
-  const p = payments[flatId] || {};
-  document.getElementById('pay-lh-name').textContent = flat.name + (lh ? ' — ' + lh.name : '');
-  document.getElementById('pay-flat-id').value = flatId;
-  document.getElementById('pay-sc-status').value = p.sc_status || 'unpaid';
-  document.getElementById('pay-rf-status').value = p.rf_status || 'unpaid';
-  document.getElementById('pay-sc-date').value = p.sc_received_date || '';
-  document.getElementById('pay-rf-date').value = p.rf_received_date || '';
-  openModal('pay-modal');
+function updateIncomeForm() {
+  const type = document.getElementById('income-type').value;
+  document.getElementById('income-flat-group').style.display = type === 'leaseholder' ? '' : 'none';
+  document.getElementById('income-desc-group').style.display = type !== 'leaseholder' ? '' : 'none';
 }
 
-async function savePayment() {
-  const btn = document.getElementById('pay-save-btn');
-  const id = document.getElementById('pay-flat-id').value;
-  const data = { flat_id: id, sc_status: document.getElementById('pay-sc-status').value, rf_status: document.getElementById('pay-rf-status').value, sc_received_date: document.getElementById('pay-sc-date').value || null, rf_received_date: document.getElementById('pay-rf-date').value || null };
+function openAddIncome(flatId, fund) {
+  document.getElementById('add-income-title').textContent = 'Log income';
+  document.getElementById('income-type').value = flatId ? 'leaseholder' : 'leaseholder';
+  updateIncomeForm();
+  document.getElementById('income-flat-id').innerHTML = sortFlats(flats).map(f => `<option value="${f.id}"${f.id===flatId?' selected':''}>${f.name}</option>`).join('');
+  document.getElementById('income-fund').value = fund || 'sc';
+  document.getElementById('income-charge-year').innerHTML = [...years]
+    .sort((a, b) => b.end_date.localeCompare(a.end_date))
+    .map(y => `<option value="${y.id}"${y.id === year ? ' selected' : ''}>${y.label}</option>`)
+    .join('');
+  document.getElementById('income-amount').value = '';
+  document.getElementById('income-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('income-reference').value = '';
+  document.getElementById('income-desc').value = '';
+  openModal('add-income-modal');
+}
+
+async function saveIncome() {
+  const btn = document.getElementById('income-save-btn');
+  const type = document.getElementById('income-type').value;
+  const chargeYear = document.getElementById('income-charge-year').value;
+  const item = {
+    type,
+    flat_id: type === 'leaseholder' ? document.getElementById('income-flat-id').value : null,
+    fund: document.getElementById('income-fund').value,
+    charge_year: chargeYear,
+    amount: Number(document.getElementById('income-amount').value) || 0,
+    date: document.getElementById('income-date').value,
+    description: type !== 'leaseholder' ? document.getElementById('income-desc').value || null : null,
+    reference: document.getElementById('income-reference').value || null,
+  };
+  if ((type === 'leaseholder' && !item.flat_id) || !item.amount || !item.date) {
+    toast('Please fill in all required fields.', true); return;
+  }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-  try { await api('PUT', `/api/${year}/payments/${id}`, data); payments[id] = data; closeModal('pay-modal'); renderCharges(); renderDashboard(); toast('Payment updated'); }
-  catch (e) { toast('Failed: ' + e.message, true); }
-  btn.disabled = false; btn.textContent = 'Update';
+  try {
+    const saved = await api('POST', `/api/blocks/${block.id}/years/${chargeYear}/income`, item);
+    if (chargeYear === year) {
+      income.push(saved);
+      derivePayments();
+      renderCharges(); renderDashboard();
+      const active = document.querySelector('.page.active');
+      if (active?.id === 'page-income') renderIncome();
+    }
+    closeModal('add-income-modal');
+    toast(chargeYear !== year ? `Income logged against ${chargeYear}` : 'Income logged');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
 }
 
-async function markReceived(flatId, fund) {
-  const today = new Date().toISOString().slice(0, 10);
-  const p = payments[flatId] || {};
-  const data = { flat_id: flatId, sc_status: p.sc_status || 'unpaid', rf_status: p.rf_status || 'unpaid', sc_received_date: p.sc_received_date || null, rf_received_date: p.rf_received_date || null };
-  data[fund + '_received_date'] = today;
-  try { await api('PUT', `/api/${year}/payments/${flatId}`, data); payments[flatId] = data; renderCharges(); renderDashboard(); toast('Marked received'); }
-  catch (e) { toast('Failed: ' + e.message, true); }
+function openIncomeHistory(flatId) {
+  const flat = flats.find(f => f.id === flatId);
+  document.getElementById('income-history-title').textContent = (flat?.name || 'Flat') + ' — payment history';
+  const txns = income.filter(t => t.type === 'leaseholder' && t.flat_id === flatId).sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('income-history-body').innerHTML = txns.length === 0
+    ? '<tr><td colspan="6" class="empty">No payments recorded.</td></tr>'
+    : txns.map(t => `<tr><td>${t.date}</td><td><span class="badge ${t.fund}">${t.fund.toUpperCase()}</span></td><td class="mono">${fmt(t.amount)}</td><td style="color:var(--ink-3)">${t.charge_year}</td><td style="color:var(--ink-3)">${t.reference||'—'}</td><td><button class="btn small danger" onclick="deleteIncome('${t.id}','${flatId}')">Delete</button></td></tr>`).join('');
+  openModal('income-history-modal');
+}
+
+async function deleteIncome(id, flatId) {
+  if (!confirm('Delete this record?')) return;
+  try {
+    await api('DELETE', `${yearBase()}/income/${id}`);
+    income = income.filter(t => t.id !== id);
+    derivePayments();
+    closeModal('income-history-modal');
+    renderCharges(); renderDashboard();
+    const active = document.querySelector('.page.active');
+    if (active?.id === 'page-income') renderIncome();
+    toast('Deleted');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+}
+
+let incomeFilter = 'all';
+
+function filterIncome(f, el) {
+  incomeFilter = f;
+  document.querySelectorAll('#page-income .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active'); renderIncome();
+}
+
+function renderIncome() {
+  let items = [...income].sort((a, b) => b.date.localeCompare(a.date));
+  if (incomeFilter !== 'all') items = items.filter(t => t.type === incomeFilter);
+  document.getElementById('income-table-body').innerHTML = items.length === 0
+    ? '<tr><td colspan="8" class="empty"><p>No income recorded yet.</p></td></tr>'
+    : items.map(t => {
+        const flat = t.flat_id ? flats.find(f => f.id === t.flat_id) : null;
+        const label = t.type === 'leaseholder' ? (flat?.name || '—') : (t.description || '—');
+        const typeLabel = t.type === 'leaseholder' ? 'Leaseholder' : t.type.charAt(0).toUpperCase() + t.type.slice(1);
+        return `<tr>
+          <td>${t.date}</td>
+          <td><span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--paper-2);color:var(--ink-2)">${typeLabel}</span></td>
+          <td><span class="badge ${t.fund}">${t.fund.toUpperCase()}</span></td>
+          <td style="color:var(--ink-2)">${label}</td>
+          <td style="color:var(--ink-3)">${t.charge_year}</td>
+          <td style="color:var(--ink-3)">${t.reference || '—'}</td>
+          <td class="mono">${fmt(t.amount)}</td>
+          <td><button class="btn small danger" onclick="deleteIncome('${t.id}',null)">Delete</button></td>
+        </tr>`;
+      }).join('');
 }
 
 async function viewInvoice(id) {
   try {
-    const data = await api('GET', `/api/${year}/expenditure/${id}/invoice-url`);
+    const data = await api('GET', `${yearBase()}/expenditure/${id}/invoice-url`);
     window.open(data.url, '_blank');
   } catch (e) { toast('Failed to load invoice: ' + e.message, true); }
 }
@@ -990,8 +1346,10 @@ function renderRecon() {
   const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
   const scSpent = expenditure.filter(e=>e.fund==='sc').reduce((a,e)=>a+Number(e.amount),0);
   const rfSpent = expenditure.filter(e=>e.fund==='rf').reduce((a,e)=>a+Number(e.amount),0);
-  let scC=0,rfC=0,scR=0,rfR=0;
-  flats.forEach(flat=>{const p=payments[flat.id]||{},sc=scB*(Number(flat.sc_share)||0)/100,rf=rfB*(Number(flat.rf_share)||0)/100;scR+=sc;rfR+=rf;if(effSC(p)==='paid')scC+=sc;else if(effSC(p)==='partial')scC+=sc*0.5;if(effRF(p)==='paid')rfC+=rf;else if(effRF(p)==='partial')rfC+=rf*0.5;});
+  const scC = income.filter(t=>t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
+  const rfC = income.filter(t=>t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
+  const scR = flats.reduce((s,f)=>s+scB*(Number(f.sc_share)||0)/100,0);
+  const rfR = flats.reduce((s,f)=>s+rfB*(Number(f.rf_share)||0)/100,0);
   const surplus = scC - scSpent;
   document.getElementById('r-sc-raised').textContent = fmt(scR);
   document.getElementById('r-sc-collected').textContent = fmt(scC);
@@ -1003,9 +1361,30 @@ function renderRecon() {
   document.getElementById('r-rf-closing').textContent = fmt(rfC - rfSpent);
   document.getElementById('r-rf-notes').textContent = budget.rf_notes || 'No notes set.';
   document.getElementById('r-sc-cats').innerHTML = (budget.sc_categories||[]).map(cat=>{const s=expenditure.filter(e=>e.fund==='sc'&&e.category===cat).reduce((a,e)=>a+Number(e.amount),0);return`<div class="recon-line"><span>${cat}</span><span class="mono">${fmt(s)}</span></div>`;}).join('')||'<div class="recon-line" style="color:var(--ink-3)">No categories set</div>';
-  document.getElementById('r-lh-table').innerHTML = flats.length===0
-    ?'<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No flats added.</td></tr>'
-    :sortFlats(flats).map(flat=>{const p=payments[flat.id]||{},sc=scB*(Number(flat.sc_share)||0)/100,rf=rfB*(Number(flat.rf_share)||0)/100,scP=effSC(p)==='paid'?sc:effSC(p)==='partial'?sc*0.5:0,rfP=effRF(p)==='paid'?rf:effRF(p)==='partial'?rf*0.5:0,out=(sc-scP)+(rf-rfP),lh=activeLH(flat.id);return`<tr><td>${flat.name}</td><td>${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;}).join('');
+  if (flats.length === 0) {
+    document.getElementById('r-lh-table').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No flats added.</td></tr>';
+  } else {
+    let lhHtml = '';
+    for (const flat of sortFlats(flats)) {
+      const sc = scB*(Number(flat.sc_share)||0)/100, rf = rfB*(Number(flat.rf_share)||0)/100;
+      const scP = income.filter(t=>t.type==='leaseholder'&&t.flat_id===flat.id&&t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
+      const rfP = income.filter(t=>t.type==='leaseholder'&&t.flat_id===flat.id&&t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
+      const out = (sc-scP)+(rf-rfP);
+      const pro = calcProration(flat);
+      if (!pro || !pro.isProrated) {
+        const lh = activeLH(flat.id);
+        lhHtml += `<tr><td>${flat.name}</td><td>${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;
+      } else {
+        // Flat summary row
+        lhHtml += `<tr style="background:var(--paper)"><td><strong>${flat.name}</strong></td><td style="font-size:11px;color:var(--ink-3)">Prorated</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;
+        // Per-leaseholder prorated rows
+        for (const { lh, days, fraction } of pro.entries) {
+          lhHtml += `<tr><td style="padding-left:22px;color:var(--ink-3)">↳</td><td>${lh.name} <span style="color:var(--ink-3);font-size:10px">${days}d / ${(fraction*100).toFixed(1)}%</span></td><td class="mono" style="color:var(--ink-3)">${fmt(sc*fraction)}</td><td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(rf*fraction)}</td><td>—</td><td>—</td></tr>`;
+        }
+      }
+    }
+    document.getElementById('r-lh-table').innerHTML = lhHtml;
+  }
 }
 
 function openModal(id) {
@@ -1029,7 +1408,7 @@ document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('c
       try {
         const form = new FormData();
         form.append('file', file);
-        const res = await fetch(`/api/${year}/expenditure/parse-invoice`, { method: 'POST', body: form });
+        const res = await fetch(`${yearBase()}/expenditure/parse-invoice`, { method: 'POST', body: form });
         if (res.ok) {
           const p = await res.json();
           if (p.invoice_date && !document.getElementById('exp-date').value)
@@ -1056,6 +1435,161 @@ document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('c
     setFile(file);
   });
 })();
+
+// ---- Settings ----
+
+function renderSettings() {
+  document.getElementById('settings-year-block-name').textContent = block?.name || '';
+
+  // Blocks list
+  document.getElementById('settings-blocks-list').innerHTML = blocks.length === 0
+    ? '<p class="hint">No blocks yet.</p>'
+    : blocks.map(b => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--paper-2)">
+          <div>
+            <div style="font-size:13px">${b.name}</div>
+            ${b.company_number ? `<div class="hint">Co. no. ${b.company_number}</div>` : ''}
+            ${b.address ? `<div class="hint">${b.address}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn small" onclick="editBlock('${b.id}')">Edit</button>
+          </div>
+        </div>`).join('');
+
+  // Years list
+  document.getElementById('settings-years-list').innerHTML = years.length === 0
+    ? '<p class="hint">No financial years defined yet.</p>'
+    : [...years].sort((a, b) => b.start_date.localeCompare(a.start_date))
+        .map(y => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--paper-2)">
+            <div>
+              <div style="font-size:13px">${y.label}</div>
+              <div class="hint">${y.start_date} → ${y.end_date}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn small" onclick="editYear('${y.id}')">Edit</button>
+              <button class="btn small danger" onclick="deleteYear('${y.id}')">Delete</button>
+            </div>
+          </div>`).join('');
+}
+
+function openBlockModal() {
+  document.getElementById('block-modal-title').textContent = 'Add block';
+  document.getElementById('block-edit-id').value = '';
+  ['block-name','block-address','block-company-number','block-url'].forEach(id => document.getElementById(id).value = '');
+  openModal('block-modal');
+}
+
+function editBlock(id) {
+  const b = blocks.find(x => x.id === id); if (!b) return;
+  document.getElementById('block-modal-title').textContent = 'Edit block';
+  document.getElementById('block-edit-id').value = id;
+  document.getElementById('block-name').value = b.name || '';
+  document.getElementById('block-address').value = b.address || '';
+  document.getElementById('block-company-number').value = b.company_number || '';
+  document.getElementById('block-url').value = b.url || '';
+  openModal('block-modal');
+}
+
+async function saveBlock() {
+  const btn = document.getElementById('block-save-btn');
+  const editId = document.getElementById('block-edit-id').value;
+  const data = {
+    name: document.getElementById('block-name').value.trim(),
+    address: document.getElementById('block-address').value.trim() || null,
+    company_number: document.getElementById('block-company-number').value.trim() || null,
+    url: document.getElementById('block-url').value.trim() || null,
+  };
+  if (!data.name) { toast('Block name is required.', true); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    if (editId) {
+      const u = await api('PUT', `/api/blocks/${editId}`, data);
+      const idx = blocks.findIndex(b => b.id === editId);
+      if (idx >= 0) blocks[idx] = { id: editId, ...data };
+      if (block?.id === editId) { block = blocks[idx]; renderBlockSelector(); }
+    } else {
+      const created = await api('POST', '/api/blocks/', data);
+      blocks.push(created);
+    }
+    closeModal('block-modal');
+    renderSettings();
+    toast('Block saved');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+function autoFillYearDates(label) {
+  // If label matches "YYYY/YY" pattern, pre-fill April–March dates
+  const m = label.match(/^(\d{4})\/(\d{2})$/);
+  if (!m) return;
+  const startYear = m[1];
+  const endYear = '20' + m[2];
+  const startEl = document.getElementById('year-start');
+  const endEl = document.getElementById('year-end');
+  if (!startEl.value) startEl.value = `${startYear}-04-01`;
+  if (!endEl.value) endEl.value = `${endYear}-03-31`;
+}
+
+function openYearModal() {
+  document.getElementById('year-modal-title').textContent = 'Add financial year';
+  document.getElementById('year-edit-id').value = '';
+  ['year-label','year-start','year-end'].forEach(id => document.getElementById(id).value = '');
+  openModal('year-modal');
+}
+
+function editYear(id) {
+  const y = years.find(x => x.id === id); if (!y) return;
+  document.getElementById('year-modal-title').textContent = 'Edit financial year';
+  document.getElementById('year-edit-id').value = id;
+  document.getElementById('year-label').value = y.label || '';
+  document.getElementById('year-start').value = y.start_date || '';
+  document.getElementById('year-end').value = y.end_date || '';
+  openModal('year-modal');
+}
+
+async function saveYear() {
+  const btn = document.getElementById('year-save-btn');
+  const editId = document.getElementById('year-edit-id').value;
+  const data = {
+    label: document.getElementById('year-label').value.trim(),
+    start_date: document.getElementById('year-start').value,
+    end_date: document.getElementById('year-end').value,
+  };
+  if (!data.label || !data.start_date || !data.end_date) { toast('All fields are required.', true); return; }
+  if (data.start_date >= data.end_date) { toast('Start date must be before end date.', true); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    if (editId) {
+      await api('PUT', `${blockBase()}/years/${editId}`, data);
+      const idx = years.findIndex(y => y.id === editId);
+      if (idx >= 0) years[idx] = { ...years[idx], ...data };
+    } else {
+      const created = await api('POST', `${blockBase()}/years/`, data);
+      years.push(created);
+    }
+    renderYearSelect();
+    closeModal('year-modal');
+    renderSettings();
+    toast('Year saved');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+async function deleteYear(id) {
+  if (!confirm('Delete this financial year? This will fail if it has any expenditure or income.')) return;
+  try {
+    await api('DELETE', `${blockBase()}/years/${id}`);
+    years = years.filter(y => y.id !== id);
+    if (year === id) {
+      year = autoSelectYear();
+      renderYearSelect();
+      if (year) await loadYear();
+    }
+    renderSettings();
+    toast('Year deleted');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+}
 
 loadAll();
 </script>

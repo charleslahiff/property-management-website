@@ -1,43 +1,44 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from backend.firestore import get_db
-from backend.models import Budget, Expenditure, Payment, InvoiceUploadResponse
+from backend.models import Budget, Expenditure, Payment, InvoiceUploadResponse, Income
 from google.cloud import storage
 import os, uuid, datetime
 
-router = APIRouter(prefix="/api/{year}", tags=["charges"])
+router = APIRouter(prefix="/api/blocks/{block_id}/years/{year_id}", tags=["charges"])
 
 GCS_BUCKET = os.environ.get("GCS_BUCKET_NAME", "lahiff-management-docs")
 
 
-def _year_doc(year: str):
-    return get_db().collection("years").document(year)
+def _year_doc(block_id: str, year_id: str):
+    return (get_db().collection("blocks").document(block_id)
+            .collection("years").document(year_id))
 
 
 # ---- Budget ----
 
 @router.get("/budget")
-async def get_budget(year: str):
-    doc = _year_doc(year).get()
+async def get_budget(block_id: str, year_id: str):
+    doc = _year_doc(block_id, year_id).get()
     if not doc.exists:
         return Budget().model_dump()
     return doc.to_dict().get("budget", Budget().model_dump())
 
 
 @router.put("/budget")
-async def save_budget(year: str, budget: Budget):
-    _year_doc(year).set({"budget": budget.model_dump()}, merge=True)
+async def save_budget(block_id: str, year_id: str, budget: Budget):
+    _year_doc(block_id, year_id).set({"budget": budget.model_dump()}, merge=True)
     return budget
 
 
 # ---- Expenditure ----
 
-def _exp_col(year: str):
-    return _year_doc(year).collection("expenditure")
+def _exp_col(block_id: str, year_id: str):
+    return _year_doc(block_id, year_id).collection("expenditure")
 
 
 @router.get("/expenditure")
-async def list_expenditure(year: str, fund: str = None):
-    q = _exp_col(year)
+async def list_expenditure(block_id: str, year_id: str, fund: str = None):
+    q = _exp_col(block_id, year_id)
     if fund:
         q = q.where("fund", "==", fund)
     docs = q.order_by("date", direction="DESCENDING").stream()
@@ -45,15 +46,15 @@ async def list_expenditure(year: str, fund: str = None):
 
 
 @router.post("/expenditure")
-async def create_expenditure(year: str, exp: Expenditure):
+async def create_expenditure(block_id: str, year_id: str, exp: Expenditure):
     exp.id = str(uuid.uuid4())
-    _exp_col(year).document(exp.id).set(exp.model_dump(exclude={"id"}))
+    _exp_col(block_id, year_id).document(exp.id).set(exp.model_dump(exclude={"id"}))
     return exp
 
 
 @router.put("/expenditure/{exp_id}")
-async def update_expenditure(year: str, exp_id: str, exp: Expenditure):
-    ref = _exp_col(year).document(exp_id)
+async def update_expenditure(block_id: str, year_id: str, exp_id: str, exp: Expenditure):
+    ref = _exp_col(block_id, year_id).document(exp_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Expenditure not found")
     ref.update(exp.model_dump(exclude={"id"}, exclude_none=False))
@@ -61,8 +62,8 @@ async def update_expenditure(year: str, exp_id: str, exp: Expenditure):
 
 
 @router.delete("/expenditure/{exp_id}")
-async def delete_expenditure(year: str, exp_id: str):
-    ref = _exp_col(year).document(exp_id)
+async def delete_expenditure(block_id: str, year_id: str, exp_id: str):
+    ref = _exp_col(block_id, year_id).document(exp_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Expenditure not found")
     ref.delete()
@@ -72,7 +73,7 @@ async def delete_expenditure(year: str, exp_id: str):
 # ---- Invoice parsing ----
 
 @router.post("/expenditure/parse-invoice")
-async def parse_invoice(file: UploadFile = File(...)):
+async def parse_invoice(block_id: str, year_id: str, file: UploadFile = File(...)):
     """Extract invoice fields from a PDF using the Claude API."""
     import pdfplumber, io, anthropic, json as _json
 
@@ -114,25 +115,23 @@ async def parse_invoice(file: UploadFile = File(...)):
 # ---- Invoice upload ----
 
 @router.post("/expenditure/{exp_id}/invoice", response_model=InvoiceUploadResponse)
-async def upload_invoice(year: str, exp_id: str, file: UploadFile = File(...)):
+async def upload_invoice(block_id: str, year_id: str, exp_id: str, file: UploadFile = File(...)):
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "pdf"
-    blob_name = f"{year}/invoices/{exp_id}.{ext}"
+    blob_name = f"{block_id}/{year_id}/invoices/{exp_id}.{ext}"
     blob = bucket.blob(blob_name)
     contents = await file.read()
     blob.upload_from_string(contents, content_type=file.content_type)
 
-    # Generate a signed URL valid for 7 days for immediate viewing
     signed_url = blob.generate_signed_url(
         expiration=datetime.timedelta(days=7),
         method="GET",
         version="v4",
     )
 
-    # Store the GCS path (not signed URL) permanently in Firestore
     gcs_path = f"gs://{GCS_BUCKET}/{blob_name}"
-    _exp_col(year).document(exp_id).update({"invoice_gcs_path": gcs_path})
+    _exp_col(block_id, year_id).document(exp_id).update({"invoice_gcs_path": gcs_path})
 
     return InvoiceUploadResponse(
         upload_url=signed_url,
@@ -142,9 +141,9 @@ async def upload_invoice(year: str, exp_id: str, file: UploadFile = File(...)):
 
 
 @router.get("/expenditure/{exp_id}/invoice-url")
-async def get_invoice_url(year: str, exp_id: str):
+async def get_invoice_url(block_id: str, year_id: str, exp_id: str):
     """Generate a fresh signed URL for viewing a stored invoice."""
-    doc = _exp_col(year).document(exp_id).get()
+    doc = _exp_col(block_id, year_id).document(exp_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Expenditure not found")
     gcs_path = doc.to_dict().get("invoice_gcs_path")
@@ -162,19 +161,46 @@ async def get_invoice_url(year: str, exp_id: str):
     return {"url": signed_url}
 
 
-# ---- Payments ----
+# ---- Payments (legacy — kept for backwards compatibility) ----
 
-def _pay_col(year: str):
-    return _year_doc(year).collection("payments")
+def _pay_col(block_id: str, year_id: str):
+    return _year_doc(block_id, year_id).collection("payments")
 
 
 @router.get("/payments")
-async def list_payments(year: str):
-    docs = _pay_col(year).stream()
+async def list_payments(block_id: str, year_id: str):
+    docs = _pay_col(block_id, year_id).stream()
     return {d.id: d.to_dict() for d in docs}
 
 
 @router.put("/payments/{flat_id}")
-async def update_payment(year: str, flat_id: str, payment: Payment):
-    _pay_col(year).document(flat_id).set(payment.model_dump(exclude={"flat_id"}))
+async def update_payment(block_id: str, year_id: str, flat_id: str, payment: Payment):
+    _pay_col(block_id, year_id).document(flat_id).set(payment.model_dump(exclude={"flat_id"}))
     return payment
+
+
+# ---- Income ----
+
+def _income_col(block_id: str, year_id: str):
+    return _year_doc(block_id, year_id).collection("income")
+
+
+@router.get("/income")
+async def list_income(block_id: str, year_id: str):
+    return [{"id": d.id, **d.to_dict()} for d in _income_col(block_id, year_id).stream()]
+
+
+@router.post("/income")
+async def create_income(block_id: str, year_id: str, item: Income):
+    item.id = str(uuid.uuid4())
+    _income_col(block_id, year_id).document(item.id).set(item.model_dump(exclude={"id"}))
+    return item
+
+
+@router.delete("/income/{income_id}")
+async def delete_income(block_id: str, year_id: str, income_id: str):
+    ref = _income_col(block_id, year_id).document(income_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Income item not found")
+    ref.delete()
+    return {"deleted": income_id}

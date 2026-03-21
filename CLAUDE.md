@@ -1,7 +1,7 @@
 # Block Management — CLAUDE.md
 
 Private property management tool for service charges and reserve fund tracking.
-Single block (Lahiff Management), single deployment, small number of leaseholders (~12).
+Supports multiple blocks. First block: "Eagle Court Management (Hornsey) Limited" (block_id: `eagle-court`), ~12 leaseholders.
 
 ## Stack
 
@@ -31,15 +31,37 @@ backend/
   firestore.py      # Firestore client singleton
   models.py         # Pydantic models
   routers/
-    charges.py      # Budget, expenditure, payments, invoice upload/parse
-    flats.py        # Flat CRUD (building-level, prefix /api/flats)
-    leaseholders.py # Leaseholder CRUD (building-level, prefix /api/leaseholders)
+    blocks.py       # Block CRUD (prefix /api/blocks)
+    years.py        # Financial year CRUD (prefix /api/blocks/{block_id}/years)
+    flats.py        # Flat CRUD (prefix /api/blocks/{block_id}/flats)
+    leaseholders.py # Leaseholder CRUD (prefix /api/blocks/{block_id}/leaseholders)
+    charges.py      # Budget, expenditure, income, invoice upload/parse
+                    #   (prefix /api/blocks/{block_id}/years/{year_id})
+scripts/
+  migrate_to_blocks.py  # One-time migration from old flat structure
 frontend/
   index.html        # Entire frontend — HTML, CSS, and JS in one file
   src/              # (unused)
 ```
 
 ## Data models
+
+### Block
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | UUID, set on create |
+| `name` | string | e.g. "Eagle Court Management (Hornsey) Limited" |
+| `address` | string? | |
+| `company_number` | string? | Companies House number |
+| `url` | string? | Website URL |
+
+### FinancialYear
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | Slug e.g. "2025-26", set from label on create |
+| `label` | string | Display label e.g. "2025/26" |
+| `start_date` | string | ISO date e.g. "2025-04-01" |
+| `end_date` | string | ISO date e.g. "2026-03-31" |
 
 ### Flat
 | Field | Type | Notes |
@@ -87,43 +109,55 @@ frontend/
 
 > When a PDF invoice is uploaded, `POST /api/{year}/expenditure/parse-invoice` uses pdfplumber + Claude Haiku to extract fields and auto-populate the form.
 
-### Payment _(keyed by flat ID)_
+### PaymentTransaction
 | Field | Type | Notes |
 | --- | --- | --- |
+| `id` | string | UUID, set on create |
 | `flat_id` | string | References a Flat by ID |
-| `sc_status` | string | `"unpaid"` \| `"partial"` \| `"paid"` |
-| `rf_status` | string | `"unpaid"` \| `"partial"` \| `"paid"` |
-| `sc_received_date` | string? | ISO date payment was received |
-| `rf_received_date` | string? | ISO date payment was received |
+| `fund` | string | `"sc"` \| `"rf"` |
+| `amount` | float | Must be > 0 |
+| `date` | string | ISO date — when cash was received |
+| `charge_year` | string | Which year's charge this settles (can differ from year received — supports late payment) |
+| `reference` | string? | e.g. bank ref, cheque number |
 
-> If the budget for a fund is £0, its status is treated as `"paid"` automatically in the UI (see module-level `effSC`/`effRF` helpers).
+> Stored under `years/{charge_year}/payment_transactions/{id}`. Status (unpaid/partial/paid) is derived in the frontend via `derivePayments()` from transaction sums vs. charge amounts. `effSC(p)` / `effRF(p)` helpers still work as `payments` dict is recomputed from transactions.
 
 ## Firestore structure
 
 ```
-flats/{id}            # Flat documents (building-level, not year-scoped)
-leaseholders/{id}     # Leaseholder documents (building-level, flat_id references a flat)
-years/{year}/
-  budget              # Budget map (see above)
-  expenditure/{id}    # Expenditure documents
-  payments/{flat_id}  # Payment documents, keyed by flat ID
+blocks/{block_id}               # Block documents (e.g. "eagle-court")
+  flats/{id}                    # Flat documents
+  leaseholders/{id}             # Leaseholder documents
+  years/{year_id}/              # Financial year documents (e.g. "2025-26")
+    budget                      # Budget map (on year document)
+    expenditure/{id}            # Expenditure documents
+    income/{id}                 # Income documents
 ```
+
+GCS layout: `{block_id}/{year_id}/invoices/{exp_id}.{ext}`
 
 ## API routes
 
+All routes are prefixed with `/api/blocks/{block_id}`.
+
 | Method | Path | Description |
 | --- | --- | --- |
-| GET/POST | `/api/flats/` | List / create flats |
-| PUT/DELETE | `/api/flats/{id}` | Update / delete flat |
-| GET/POST | `/api/leaseholders/` | List / create leaseholders |
-| PUT/DELETE | `/api/leaseholders/{id}` | Update / delete leaseholder |
-| GET/PUT | `/api/{year}/budget` | Get / save budget |
-| GET/POST | `/api/{year}/expenditure` | List / create expenditure |
-| DELETE | `/api/{year}/expenditure/{id}` | Delete expenditure |
-| POST | `/api/{year}/expenditure/parse-invoice` | Extract fields from PDF via Claude |
-| POST | `/api/{year}/expenditure/{id}/invoice` | Upload invoice to GCS |
-| GET | `/api/{year}/expenditure/{id}/invoice-url` | Get fresh signed URL for invoice |
-| GET/PUT | `/api/{year}/payments/{flat_id}` | Get / update payment status |
+| GET/POST | `/api/blocks/` | List / create blocks |
+| PUT/DELETE | `/api/blocks/{block_id}` | Update / delete block |
+| GET/POST | `/api/blocks/{block_id}/years/` | List / create financial years |
+| PUT/DELETE | `/api/blocks/{block_id}/years/{year_id}` | Update / delete year |
+| GET/POST | `/api/blocks/{block_id}/flats/` | List / create flats |
+| PUT/DELETE | `/api/blocks/{block_id}/flats/{id}` | Update / delete flat |
+| GET/POST | `/api/blocks/{block_id}/leaseholders/` | List / create leaseholders |
+| PUT/DELETE | `/api/blocks/{block_id}/leaseholders/{id}` | Update / delete leaseholder |
+| GET/PUT | `/api/blocks/{block_id}/years/{year_id}/budget` | Get / save budget |
+| GET/POST | `/api/blocks/{block_id}/years/{year_id}/expenditure` | List / create expenditure |
+| PUT/DELETE | `/api/blocks/{block_id}/years/{year_id}/expenditure/{id}` | Update / delete expenditure |
+| POST | `/api/blocks/{block_id}/years/{year_id}/expenditure/parse-invoice` | Extract fields from PDF via Claude |
+| POST | `/api/blocks/{block_id}/years/{year_id}/expenditure/{id}/invoice` | Upload invoice to GCS |
+| GET | `/api/blocks/{block_id}/years/{year_id}/expenditure/{id}/invoice-url` | Get fresh signed URL |
+| GET/POST | `/api/blocks/{block_id}/years/{year_id}/income` | List / create income |
+| DELETE | `/api/blocks/{block_id}/years/{year_id}/income/{id}` | Delete income |
 
 ## GCS layout
 
@@ -135,11 +169,13 @@ Invoices are stored by GCS path in Firestore (`invoice_gcs_path`). Signed URLs (
 
 ## Key frontend conventions
 
-- All state lives in five module-level variables: `budget`, `flats`, `leaseholders`, `expenditure`, `payments`
-- `loadBuilding()` fetches `flats` and `leaseholders` (building-level, called once on init)
-- `loadYear()` fetches `budget`, `expenditure`, `payments` (year-scoped, called on year change)
-- `loadAll()` calls `loadBuilding()` then `loadYear()`
+- All state: `block`, `blocks`, `years`, `year`, `budget`, `flats`, `leaseholders`, `expenditure`, `payments`, `income`
+- `year` is a year slug string e.g. `"2025-26"` (not a bare integer)
+- `blockBase()` returns `/api/blocks/${block.id}` — use for flat/leaseholder routes
+- `yearBase()` returns `${blockBase()}/years/${year}` — use for budget/expenditure/income routes
+- `loadAll()` → `loadBlock(blockId)` → `loadBuilding()` + `loadYear()`
 - `changeYear(y)` calls `loadYear()` only — flats/leaseholders are not reloaded
+- `changeBlock(blockId)` resets all state and calls `loadBlock()`
 - Each page has a `render*()` function called from `showPage()`
 - `sortFlats(arr)` sorts flats by numeric name — apply to all flat lists
 - `activeLH(flatId)` returns the current active leaseholder for a flat (not expired, most recent effective date)

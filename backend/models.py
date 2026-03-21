@@ -3,6 +3,21 @@ from typing import Optional
 from datetime import date
 
 
+class Block(BaseModel):
+    id: Optional[str] = None
+    name: str
+    address: Optional[str] = None
+    company_number: Optional[str] = None
+    url: Optional[str] = None
+
+
+class FinancialYear(BaseModel):
+    id: Optional[str] = None   # slug e.g. "2025-26"
+    label: str                 # display label e.g. "2025/26"
+    start_date: str            # ISO date e.g. "2025-04-01"
+    end_date: str              # ISO date e.g. "2026-03-31"
+
+
 class Flat(BaseModel):
     id: Optional[str] = None
     name: str
@@ -49,6 +64,18 @@ class Payment(BaseModel):
     rf_status: str = "unpaid"
     sc_received_date: Optional[str] = None
     rf_received_date: Optional[str] = None
+
+
+class Income(BaseModel):
+    id: Optional[str] = None
+    type: str          # "leaseholder" | "interest" | "other"
+    fund: str          # "sc" | "rf"
+    flat_id: Optional[str] = None  # required for leaseholder type
+    amount: float = Field(gt=0)
+    date: str          # ISO date — when cash was received
+    charge_year: str   # which financial year this income relates to
+    description: Optional[str] = None
+    reference: Optional[str] = None
 
 
 class InvoiceUploadResponse(BaseModel):
