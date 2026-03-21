@@ -278,7 +278,10 @@
   <div class="two-col">
     <div class="card">
       <div class="card-title">Service charge fund</div>
-      <div class="form-group"><label class="form-label">Annual SC budget (£)</label><input class="form-input" type="number" id="sc-budget-input" placeholder="e.g. 24000"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Annual SC budget (£)</label><input class="form-input" type="number" id="sc-budget-input" placeholder="e.g. 24000"></div>
+        <div class="form-group"><label class="form-label">Opening balance (£) <span style="color:var(--ink-3);font-weight:400;font-size:11px">brought forward</span></label><input class="form-input" type="number" id="sc-opening-balance" placeholder="0.00" step="0.01"></div>
+      </div>
       <div class="form-group"><label class="form-label">Budget notes</label><textarea class="form-input" rows="3" id="sc-budget-notes" placeholder="e.g. Includes planned gutter works..." style="resize:vertical"></textarea></div>
       <div class="form-group">
         <label class="form-label">Budget categories</label>
@@ -288,7 +291,10 @@
     </div>
     <div class="card">
       <div class="card-title">Reserve fund</div>
-      <div class="form-group"><label class="form-label">Annual RF contribution target (£)</label><input class="form-input" type="number" id="rf-budget-input" placeholder="e.g. 6000"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Annual RF contribution target (£)</label><input class="form-input" type="number" id="rf-budget-input" placeholder="e.g. 6000"></div>
+        <div class="form-group"><label class="form-label">Opening balance (£) <span style="color:var(--ink-3);font-weight:400;font-size:11px">brought forward</span></label><input class="form-input" type="number" id="rf-opening-balance" placeholder="0.00" step="0.01"></div>
+      </div>
       <div class="form-group"><label class="form-label">Budget notes</label><textarea class="form-input" rows="3" id="rf-budget-notes" placeholder="e.g. Building up for roof works..." style="resize:vertical"></textarea></div>
       <div class="form-group">
         <label class="form-label">Budget categories</label>
@@ -375,8 +381,16 @@
     </div>
   </div>
   <div class="card">
-    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC owed</th><th>SC paid</th><th>SC outstanding</th><th>RF owed</th><th>RF paid</th><th>RF outstanding</th><th></th></tr></thead>
-    <tbody id="charges-table-body"><tr><td colspan="9" class="empty"><p>Add leaseholders and set a budget to generate the charge schedule.</p></td></tr></tbody></table>
+    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC arrears b/f</th><th>SC owed</th><th>SC paid</th><th>SC outstanding</th><th>RF arrears b/f</th><th>RF owed</th><th>RF paid</th><th>RF outstanding</th><th></th></tr></thead>
+    <tbody id="charges-table-body"><tr><td colspan="11" class="empty"><p>Add leaseholders and set a budget to generate the charge schedule.</p></td></tr></tbody></table>
+  </div>
+  <div class="card" id="arrears-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">Prior year arrears</div>
+      <button class="btn small" onclick="openOpeningArrears()">Edit opening arrears</button>
+    </div>
+    <table><thead><tr><th>Flat</th><th>Year</th><th>SC outstanding</th><th>RF outstanding</th></tr></thead>
+    <tbody id="arrears-table-body"><tr><td colspan="4" class="empty">No prior year arrears. Use "Edit opening arrears" to record amounts owed before this system was set up.</td></tr></tbody></table>
   </div>
 </div>
 
@@ -386,6 +400,7 @@
   <div class="two-col">
     <div class="card">
       <div class="recon-header">Service charge fund</div>
+      <div class="recon-line"><span>Opening balance b/f</span><span class="mono" id="r-sc-opening">£0.00</span></div>
       <div class="recon-line"><span>Charges raised</span><span class="mono" id="r-sc-raised">£0.00</span></div>
       <div class="recon-line"><span>Charges collected</span><span class="mono" id="r-sc-collected">£0.00</span></div>
       <div class="recon-line"><span>Total expenditure</span><span class="mono" id="r-sc-spent">£0.00</span></div>
@@ -395,6 +410,7 @@
     </div>
     <div class="card">
       <div class="recon-header">Reserve fund</div>
+      <div class="recon-line"><span>Opening balance b/f</span><span class="mono" id="r-rf-opening">£0.00</span></div>
       <div class="recon-line"><span>Contributions raised</span><span class="mono" id="r-rf-raised">£0.00</span></div>
       <div class="recon-line"><span>Contributions collected</span><span class="mono" id="r-rf-collected">£0.00</span></div>
       <div class="recon-line"><span>RF expenditure</span><span class="mono" id="r-rf-spent">£0.00</span></div>
@@ -405,7 +421,7 @@
   </div>
   <div class="card">
     <div class="card-title">Leaseholder statements</div>
-    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC raised</th><th>SC paid</th><th>RF raised</th><th>RF paid</th><th>Outstanding</th></tr></thead>
+    <table><thead><tr><th>Flat</th><th>Leaseholder</th><th>SC raised</th><th>SC paid</th><th>RF raised</th><th>RF paid</th><th>This year outstanding</th><th>Prior year arrears</th></tr></thead>
     <tbody id="r-lh-table"></tbody></table>
   </div>
   <div style="margin-top:16px"><button class="btn" onclick="window.print()">Print / save PDF</button></div>
@@ -623,6 +639,28 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="opening-arrears-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <div class="modal-title">Set opening arrears</div>
+      <button class="modal-close" onclick="closeModal('opening-arrears-modal')">×</button>
+    </div>
+    <p class="hint" style="margin-bottom:16px">Enter amounts owed by each flat from before this system was set up — e.g. unpaid charges carried over from a previous managing agent.</p>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-label">Arrears apply from year</label>
+      <select class="form-input form-select" id="opening-arrears-year" style="width:200px"></select>
+    </div>
+    <table>
+      <thead><tr><th>Flat</th><th>SC arrears (£)</th><th>RF arrears (£)</th></tr></thead>
+      <tbody id="opening-arrears-body"></tbody>
+    </table>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('opening-arrears-modal')">Cancel</button>
+      <button class="btn primary" id="opening-arrears-save-btn" onclick="saveOpeningArrears()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -636,6 +674,8 @@ let leaseholders = [];
 let expenditure = [];
 let payments = {};
 let income = [];
+let arrears = [];
+let openingArrears = {};
 let expFilter = 'all';
 let chargeFilter = 'all';
 
@@ -712,10 +752,16 @@ function renderBlockSelector() {
 }
 
 async function loadBuilding() {
-  [flats, leaseholders] = await Promise.all([
+  [flats, leaseholders, arrears, openingArrears] = await Promise.all([
     api('GET', `${blockBase()}/flats/`),
     api('GET', `${blockBase()}/leaseholders/`),
+    year ? api('GET', `${blockBase()}/arrears?exclude_year=${year}`) : Promise.resolve([]),
+    api('GET', `${blockBase()}/opening_arrears`),
   ]);
+}
+
+async function reloadArrears() {
+  arrears = year ? await api('GET', `${blockBase()}/arrears?exclude_year=${year}`) : [];
 }
 
 async function loadYear() {
@@ -771,7 +817,7 @@ function showPage(id) {
 
 async function changeYear(y) {
   year = y;
-  await loadYear();
+  await Promise.all([loadYear(), reloadArrears()]);
   const active = document.querySelector('.page.active');
   showPage(active ? active.id.replace('page-', '') : 'dashboard');
 }
@@ -779,7 +825,7 @@ async function changeYear(y) {
 async function changeBlock(blockId) {
   flats = []; leaseholders = []; years = []; year = null;
   budget = { sc: 0, rf: 0, sc_notes: '', rf_notes: '', billing_freq: 'annual', due_date: '', sc_categories: ['Insurance','Repairs','Cleaning','Utilities','Management','Other'], rf_categories: ['Major works','Contingency','Other'] };
-  expenditure = []; income = []; payments = {};
+  expenditure = []; income = []; payments = {}; arrears = []; openingArrears = {};
   await loadBlock(blockId);
   showPage('dashboard');
 }
@@ -841,6 +887,7 @@ function renderCharts() {
         return { date: t.date, amount: Number(t.amount), label: t.description || t.type };
       });
     const spendEvents = expenditure.filter(e => e.fund === fund && (e.payment_date || e.date)).map(e => ({ date: e.payment_date || e.date, amount: Number(e.amount), label: e.description }));
+    const openingBalance = fund === 'sc' ? Number(budget.sc_opening_balance || 0) : Number(budget.rf_opening_balance || 0);
     const allDates = [...new Set([...incomeEvents.map(e => e.date), ...spendEvents.map(e => e.date)])].sort();
     let cumIncome = 0, cumSpend = 0;
     const balanceData = [];
@@ -850,7 +897,7 @@ function renderCharts() {
       cumIncome += dayIncome.reduce((a, e) => a + e.amount, 0);
       cumSpend += daySpend.reduce((a, e) => a + e.amount, 0);
       const events = [...dayIncome.map(e => '↑ ' + e.label + ' (' + fmt(e.amount) + ')'), ...daySpend.map(e => '↓ ' + e.label + ' (' + fmt(e.amount) + ')')];
-      balanceData.push({ x: date, y: Math.round((cumIncome - cumSpend) * 100) / 100, events });
+      balanceData.push({ x: date, y: Math.round((openingBalance + cumIncome - cumSpend) * 100) / 100, events });
     });
     if (_charts[fund]) { _charts[fund].destroy(); delete _charts[fund]; }
     if (allDates.length === 0) return;
@@ -881,6 +928,8 @@ function renderCharts() {
 function loadBudgetForm() {
   document.getElementById('sc-budget-input').value = budget.sc || '';
   document.getElementById('rf-budget-input').value = budget.rf || '';
+  document.getElementById('sc-opening-balance').value = budget.sc_opening_balance || '';
+  document.getElementById('rf-opening-balance').value = budget.rf_opening_balance || '';
   document.getElementById('sc-budget-notes').value = budget.sc_notes || '';
   document.getElementById('rf-budget-notes').value = budget.rf_notes || '';
   document.getElementById('billing-freq').value = budget.billing_freq || 'annual';
@@ -894,6 +943,8 @@ async function saveBudget() {
   try {
     budget.sc = Number(document.getElementById('sc-budget-input').value) || 0;
     budget.rf = Number(document.getElementById('rf-budget-input').value) || 0;
+    budget.sc_opening_balance = Number(document.getElementById('sc-opening-balance').value) || 0;
+    budget.rf_opening_balance = Number(document.getElementById('rf-opening-balance').value) || 0;
     budget.sc_notes = document.getElementById('sc-budget-notes').value;
     budget.rf_notes = document.getElementById('rf-budget-notes').value;
     budget.billing_freq = document.getElementById('billing-freq').value;
@@ -1170,7 +1221,7 @@ function renderCharges() {
   if (chargeFilter === 'paid')   fls = fls.filter(f => { const p = payments[f.id]||{}; return effSC(p) === 'paid' && effRF(p) === 'paid'; });
 
   if (fls.length === 0) {
-    document.getElementById('charges-table-body').innerHTML = '<tr><td colspan="9" class="empty"><p>No charges to display.</p></td></tr>';
+    document.getElementById('charges-table-body').innerHTML = '<tr><td colspan="11" class="empty"><p>No charges to display.</p></td></tr>';
   } else {
     let html = '';
     for (const f of fls) {
@@ -1184,16 +1235,26 @@ function renderCharges() {
       const btnDemand = `<button class="btn small" onclick="downloadDemand('${f.id}')">Demand</button>`;
       const pro = calcProration(f);
 
+      const oaActive = !openingArrears._year || openingArrears._year <= year;
+      const oa = oaActive ? (openingArrears[f.id] || {}) : {};
+      const scBF = arrears.filter(a => a.flat_id === f.id).reduce((s,a) => s + a.sc_outstanding, 0) + Number(oa.sc || 0);
+      const rfBF = arrears.filter(a => a.flat_id === f.id).reduce((s,a) => s + a.rf_outstanding, 0) + Number(oa.rf || 0);
+      const scTotal = scOut + scBF, rfTotal = rfOut + rfBF;
+      const scBfCell = scBF > 0.005 ? `<td class="mono" style="color:var(--danger)">${fmt(scBF)}</td>` : `<td class="mono" style="color:var(--ink-3)">—</td>`;
+      const rfBfCell = rfBF > 0.005 ? `<td class="mono" style="color:var(--danger)">${fmt(rfBF)}</td>` : `<td class="mono" style="color:var(--ink-3)">—</td>`;
+
       if (!pro || !pro.isProrated) {
         // Simple: single leaseholder covering the full year
         const lh = activeLH(f.id);
         html += `<tr>
           <td>${f.name}</td>
           <td style="color:var(--ink-3)">${lh ? lh.name : '—'}</td>
+          ${scBfCell}
           <td class="mono">${fmt(scOwed)}</td><td class="mono">${fmt(scPaid)}</td>
-          <td class="mono" style="color:${scOut>0?'var(--danger)':'var(--accent)'}">${fmt(scOut)}</td>
+          <td class="mono" style="color:${scTotal>0?'var(--danger)':'var(--accent)'}">${fmt(scTotal)}</td>
+          ${rfBfCell}
           <td class="mono">${fmt(rfOwed)}</td><td class="mono">${fmt(rfPaid)}</td>
-          <td class="mono" style="color:${rfOut>0?'var(--danger)':'var(--accent)'}">${fmt(rfOut)}</td>
+          <td class="mono" style="color:${rfTotal>0?'var(--danger)':'var(--accent)'}">${fmt(rfTotal)}</td>
           <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}${btnDemand}</td>
         </tr>`;
       } else {
@@ -1202,10 +1263,12 @@ function renderCharges() {
         html += `<tr style="background:var(--paper)">
           <td><strong>${f.name}</strong></td>
           <td style="font-size:11px;color:var(--ink-3)">${pro.entries.length} leaseholder${pro.entries.length>1?'s':''}${uncovered>0?' · '+uncovered+' days vacant':''}</td>
+          ${scBfCell}
           <td class="mono">${fmt(scOwed)}</td><td class="mono">${fmt(scPaid)}</td>
-          <td class="mono" style="color:${scOut>0?'var(--danger)':'var(--accent)'}">${fmt(scOut)}</td>
+          <td class="mono" style="color:${scTotal>0?'var(--danger)':'var(--accent)'}">${fmt(scTotal)}</td>
+          ${rfBfCell}
           <td class="mono">${fmt(rfOwed)}</td><td class="mono">${fmt(rfPaid)}</td>
-          <td class="mono" style="color:${rfOut>0?'var(--danger)':'var(--accent)'}">${fmt(rfOut)}</td>
+          <td class="mono" style="color:${rfTotal>0?'var(--danger)':'var(--accent)'}">${fmt(rfTotal)}</td>
           <td style="display:flex;gap:6px;justify-content:flex-end">${btnPay}${btnHist}${btnDemand}</td>
         </tr>`;
         for (const { lh, days, fraction } of pro.entries) {
@@ -1213,8 +1276,8 @@ function renderCharges() {
           html += `<tr>
             <td style="padding-left:22px;color:var(--ink-3)">↳</td>
             <td>${lh.name} <span style="color:var(--ink-3);font-size:10px">${days} days (${(fraction*100).toFixed(1)}%)</span></td>
-            <td class="mono" style="color:var(--ink-3)">${fmt(scP)}</td><td>—</td><td>—</td>
-            <td class="mono" style="color:var(--ink-3)">${fmt(rfP)}</td><td>—</td><td>—</td>
+            <td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(scP)}</td><td>—</td><td>—</td>
+            <td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(rfP)}</td><td>—</td><td>—</td>
             <td></td>
           </tr>`;
         }
@@ -1222,8 +1285,8 @@ function renderCharges() {
           html += `<tr>
             <td style="padding-left:22px;color:var(--ink-3)">↳</td>
             <td style="color:var(--ink-3);font-style:italic">Vacant <span style="font-size:10px">${uncovered} days (${((uncovered/pro.fyDays)*100).toFixed(1)}%)</span></td>
-            <td class="mono" style="color:var(--ink-3)">${fmt(scOwed*uncovered/pro.fyDays)}</td><td>—</td><td>—</td>
-            <td class="mono" style="color:var(--ink-3)">${fmt(rfOwed*uncovered/pro.fyDays)}</td><td>—</td><td>—</td>
+            <td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(scOwed*uncovered/pro.fyDays)}</td><td>—</td><td>—</td>
+            <td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(rfOwed*uncovered/pro.fyDays)}</td><td>—</td><td>—</td>
             <td></td>
           </tr>`;
         }
@@ -1237,6 +1300,37 @@ function renderCharges() {
   const scT = flats.reduce((s,f)=>s+scB*(Number(f.sc_share)||0)/100,0);
   const rfT = flats.reduce((s,f)=>s+rfB*(Number(f.rf_share)||0)/100,0);
   document.getElementById('charges-collected-hint').textContent = `SC collected: ${fmt(scC)} of ${fmt(scT)} · RF collected: ${fmt(rfC)} of ${fmt(rfT)}`;
+
+  // Prior year arrears — merge calculated (from tracked years) with manually-set opening arrears
+  const allArrears = [...arrears];
+  const oaApplies = !openingArrears._year || openingArrears._year <= year;
+  for (const [flatId, oa] of Object.entries(openingArrears || {}).filter(([k]) => k !== '_year')) {
+    if (!oaApplies) break;
+    const sc = Number(oa.sc || 0), rf = Number(oa.rf || 0);
+    if (sc > 0.005 || rf > 0.005) {
+      allArrears.push({ flat_id: flatId, year_id: '_opening', year_label: 'Opening balance', sc_outstanding: sc, rf_outstanding: rf });
+    }
+  }
+  const rows = allArrears.sort((a, b) => {
+    const fa = flats.find(f => f.id === a.flat_id), fb = flats.find(f => f.id === b.flat_id);
+    const na = fa?.name || '', nb = fb?.name || '';
+    if (na !== nb) return na.localeCompare(nb, undefined, {numeric: true});
+    return a.year_id.localeCompare(b.year_id);
+  });
+  document.getElementById('arrears-table-body').innerHTML = rows.length === 0
+    ? '<tr><td colspan="4" class="empty">No prior year arrears. Use "Edit opening arrears" to record amounts owed before this system was set up.</td></tr>'
+    : rows.map(r => {
+        const flat = flats.find(f => f.id === r.flat_id);
+        const label = r.year_id === '_opening'
+          ? `<span style="color:var(--ink-3);font-size:11px">Manual</span> Opening balance`
+          : r.year_label;
+        return `<tr>
+          <td>${flat?.name || r.flat_id}</td>
+          <td>${label}</td>
+          <td class="mono" style="color:${r.sc_outstanding > 0.005 ? 'var(--danger)' : 'var(--ink-3)'}">${r.sc_outstanding > 0.005 ? fmt(r.sc_outstanding) : '—'}</td>
+          <td class="mono" style="color:${r.rf_outstanding > 0.005 ? 'var(--danger)' : 'var(--ink-3)'}">${r.rf_outstanding > 0.005 ? fmt(r.rf_outstanding) : '—'}</td>
+        </tr>`;
+      }).join('');
 }
 
 function updateIncomeForm() {
@@ -1369,25 +1463,29 @@ async function viewInvoice(id) {
 
 function renderRecon() {
   const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
+  const scOB = Number(budget.sc_opening_balance||0), rfOB = Number(budget.rf_opening_balance||0);
   const scSpent = expenditure.filter(e=>e.fund==='sc').reduce((a,e)=>a+Number(e.amount),0);
   const rfSpent = expenditure.filter(e=>e.fund==='rf').reduce((a,e)=>a+Number(e.amount),0);
   const scC = income.filter(t=>t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
   const rfC = income.filter(t=>t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
   const scR = flats.reduce((s,f)=>s+scB*(Number(f.sc_share)||0)/100,0);
   const rfR = flats.reduce((s,f)=>s+rfB*(Number(f.rf_share)||0)/100,0);
-  const surplus = scC - scSpent;
+  const surplus = scOB + scC - scSpent;
+  const rfClosing = rfOB + rfC - rfSpent;
+  document.getElementById('r-sc-opening').textContent = fmt(scOB);
   document.getElementById('r-sc-raised').textContent = fmt(scR);
   document.getElementById('r-sc-collected').textContent = fmt(scC);
   document.getElementById('r-sc-spent').textContent = fmt(scSpent);
   const sEl = document.getElementById('r-sc-surplus'); sEl.textContent = fmt(surplus); sEl.parentElement.className = 'recon-line total ' + (surplus >= 0 ? 'surplus' : 'deficit');
+  document.getElementById('r-rf-opening').textContent = fmt(rfOB);
   document.getElementById('r-rf-raised').textContent = fmt(rfR);
   document.getElementById('r-rf-collected').textContent = fmt(rfC);
   document.getElementById('r-rf-spent').textContent = fmt(rfSpent);
-  document.getElementById('r-rf-closing').textContent = fmt(rfC - rfSpent);
+  document.getElementById('r-rf-closing').textContent = fmt(rfClosing);
   document.getElementById('r-rf-notes').textContent = budget.rf_notes || 'No notes set.';
   document.getElementById('r-sc-cats').innerHTML = (budget.sc_categories||[]).map(cat=>{const s=expenditure.filter(e=>e.fund==='sc'&&e.category===cat).reduce((a,e)=>a+Number(e.amount),0);return`<div class="recon-line"><span>${cat}</span><span class="mono">${fmt(s)}</span></div>`;}).join('')||'<div class="recon-line" style="color:var(--ink-3)">No categories set</div>';
   if (flats.length === 0) {
-    document.getElementById('r-lh-table').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No flats added.</td></tr>';
+    document.getElementById('r-lh-table').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--ink-3);padding:20px">No flats added.</td></tr>';
   } else {
     let lhHtml = '';
     for (const flat of sortFlats(flats)) {
@@ -1395,16 +1493,23 @@ function renderRecon() {
       const scP = income.filter(t=>t.type==='leaseholder'&&t.flat_id===flat.id&&t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
       const rfP = income.filter(t=>t.type==='leaseholder'&&t.flat_id===flat.id&&t.fund==='rf').reduce((s,t)=>s+Number(t.amount),0);
       const out = (sc-scP)+(rf-rfP);
+      const oaActive = !openingArrears._year || openingArrears._year <= year;
+      const oa = oaActive ? (openingArrears[flat.id] || {}) : {};
+      const priorArrears = arrears.filter(a=>a.flat_id===flat.id).reduce((s,a)=>s+a.sc_outstanding+a.rf_outstanding,0)
+        + Number(oa.sc||0) + Number(oa.rf||0);
       const pro = calcProration(flat);
+      const arrCell = priorArrears > 0.005
+        ? `<td class="mono" style="color:var(--danger)">${fmt(priorArrears)}</td>`
+        : `<td class="mono" style="color:var(--ink-3)">—</td>`;
       if (!pro || !pro.isProrated) {
         const lh = activeLH(flat.id);
-        lhHtml += `<tr><td>${flat.name}</td><td>${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;
+        lhHtml += `<tr><td>${flat.name}</td><td>${lh?lh.name:'—'}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td>${arrCell}</tr>`;
       } else {
         // Flat summary row
-        lhHtml += `<tr style="background:var(--paper)"><td><strong>${flat.name}</strong></td><td style="font-size:11px;color:var(--ink-3)">Prorated</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;
+        lhHtml += `<tr style="background:var(--paper)"><td><strong>${flat.name}</strong></td><td style="font-size:11px;color:var(--ink-3)">Prorated</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td>${arrCell}</tr>`;
         // Per-leaseholder prorated rows
         for (const { lh, days, fraction } of pro.entries) {
-          lhHtml += `<tr><td style="padding-left:22px;color:var(--ink-3)">↳</td><td>${lh.name} <span style="color:var(--ink-3);font-size:10px">${days}d / ${(fraction*100).toFixed(1)}%</span></td><td class="mono" style="color:var(--ink-3)">${fmt(sc*fraction)}</td><td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(rf*fraction)}</td><td>—</td><td>—</td></tr>`;
+          lhHtml += `<tr><td style="padding-left:22px;color:var(--ink-3)">↳</td><td>${lh.name} <span style="color:var(--ink-3);font-size:10px">${days}d / ${(fraction*100).toFixed(1)}%</span></td><td class="mono" style="color:var(--ink-3)">${fmt(sc*fraction)}</td><td>—</td><td class="mono" style="color:var(--ink-3)">${fmt(rf*fraction)}</td><td>—</td><td>—</td><td>—</td></tr>`;
         }
       }
     }
@@ -1630,6 +1735,44 @@ async function deleteYear(id) {
     renderSettings();
     toast('Year deleted');
   } catch (e) { toast('Failed: ' + e.message, true); }
+}
+
+function openOpeningArrears() {
+  const sortedYears = [...years].sort((a, b) => a.id.localeCompare(b.id));
+  document.getElementById('opening-arrears-year').innerHTML = sortedYears.map(y =>
+    `<option value="${y.id}"${y.id === (openingArrears._year || year) ? ' selected' : ''}>${y.label}</option>`
+  ).join('');
+  document.getElementById('opening-arrears-body').innerHTML = sortFlats(flats).map(f => {
+    const oa = openingArrears[f.id] || {};
+    return `<tr>
+      <td>${f.name}</td>
+      <td><input class="form-input" type="number" step="0.01" min="0" data-flat="${f.id}" data-fund="sc" value="${oa.sc || ''}" placeholder="0.00" style="width:110px"></td>
+      <td><input class="form-input" type="number" step="0.01" min="0" data-flat="${f.id}" data-fund="rf" value="${oa.rf || ''}" placeholder="0.00" style="width:110px"></td>
+    </tr>`;
+  }).join('');
+  openModal('opening-arrears-modal');
+}
+
+async function saveOpeningArrears() {
+  const btn = document.getElementById('opening-arrears-save-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const data = { _year: document.getElementById('opening-arrears-year').value };
+  document.querySelectorAll('#opening-arrears-body input').forEach(inp => {
+    const flatId = inp.dataset.flat, fund = inp.dataset.fund;
+    const val = Number(inp.value) || 0;
+    if (val > 0) {
+      if (!data[flatId]) data[flatId] = {};
+      data[flatId][fund] = val;
+    }
+  });
+  try {
+    openingArrears = await api('PUT', `${blockBase()}/opening_arrears`, data);
+    renderCharges();
+    renderRecon();
+    closeModal('opening-arrears-modal');
+    toast('Opening arrears saved');
+  } catch (e) { toast('Failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
 }
 
 loadAll();

@@ -45,6 +45,8 @@ class Leaseholder(BaseModel):
 class Budget(BaseModel):
     sc: float = 0
     rf: float = 0
+    sc_opening_balance: float = 0
+    rf_opening_balance: float = 0
     sc_notes: Optional[str] = None
     rf_notes: Optional[str] = None
     billing_freq: str = "annual"
