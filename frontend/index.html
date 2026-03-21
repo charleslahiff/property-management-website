@@ -149,6 +149,11 @@
   .toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: var(--radius); font-size: 12px; z-index: 200; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
   .toast.show { opacity: 1; }
   .toast.error { background: var(--danger); }
+
+  .drop-zone { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all 0.15s; color: var(--ink-3); font-size: 12px; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .drop-zone.has-file { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .drop-zone input[type=file] { display: none; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -402,7 +407,10 @@
     <div class="form-group"><label class="form-label">Supplier / reference</label><input class="form-input" type="text" id="exp-supplier" placeholder="e.g. ABC Contractors, Inv #1234"></div>
     <div class="form-group">
       <label class="form-label">Invoice (optional)</label>
-      <input class="form-input" type="file" id="exp-invoice" accept=".pdf,.jpg,.jpeg,.png" style="padding:6px 12px">
+      <div class="drop-zone" id="invoice-drop-zone" onclick="document.getElementById('exp-invoice').click()">
+        <input type="file" id="exp-invoice" accept=".pdf,.jpg,.jpeg,.png">
+        <span id="invoice-drop-label">Drop a file here or click to browse</span>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('exp-modal')">Cancel</button>
@@ -856,13 +864,30 @@ function renderRecon() {
 }
 
 function openModal(id) {
-  if (id === 'exp-modal') { document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; document.getElementById('exp-invoice').value=''; updateExpCats(); }
+  if (id === 'exp-modal') { document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; document.getElementById('exp-invoice').value=''; document.getElementById('invoice-drop-label').textContent = 'Drop a file here or click to browse'; document.getElementById('invoice-drop-zone').classList.remove('has-file'); updateExpCats(); }
   document.getElementById(id).classList.add('open');
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }); });
+
+(function() {
+  const zone = document.getElementById('invoice-drop-zone');
+  const input = document.getElementById('exp-invoice');
+  const label = document.getElementById('invoice-drop-label');
+  const setFile = file => { label.textContent = file ? '📄 ' + file.name : 'Drop a file here or click to browse'; zone.classList.toggle('has-file', !!file); };
+  input.addEventListener('change', () => setFile(input.files[0] || null));
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+    setFile(file);
+  });
+})();
 
 loadAll();
 </script>
