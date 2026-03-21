@@ -384,6 +384,10 @@
       <div class="form-group"><label class="form-label">Amount (£)</label><input class="form-input" type="number" step="0.01" id="exp-amount" placeholder="0.00"></div>
     </div>
     <div class="form-group"><label class="form-label">Supplier / reference</label><input class="form-input" type="text" id="exp-supplier" placeholder="e.g. ABC Contractors, Inv #1234"></div>
+    <div class="form-group">
+  <label class="form-label">Invoice (optional)</label>
+  <input class="form-input" type="file" id="exp-invoice" accept=".pdf,.jpg,.jpeg,.png" style="padding:6px 12px">
+</div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('exp-modal')">Cancel</button>
       <button class="btn primary" id="exp-save-btn" onclick="saveExpenditure()">Save</button>
@@ -586,7 +590,10 @@ function renderExpTable() {
   if (expFilter !== 'all') exps = exps.filter(e => e.fund === expFilter);
   document.getElementById('exp-table-body').innerHTML = exps.length === 0
     ? '<tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr>'
-    : exps.map(e => `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td style="color:var(--ink-3)">${e.supplier || '—'}</td><td class="mono">${fmt(e.amount)}</td><td><button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`).join('');
+    : exps.map(e => `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td style="color:var(--ink-3)">${e.supplier || '—'}</td><td class="mono">${fmt(e.amount)}</td><td style="display:flex;gap:6px;justify-content:flex-end">
+  ${e.invoice_gcs_path ? `<button class="btn small" onclick="viewInvoice('${e.id}')">Invoice</button>` : ''}
+  <button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button>
+</td></tr>`).join('');
 }
 
 function updateExpCats() {
@@ -597,12 +604,34 @@ function updateExpCats() {
 
 async function saveExpenditure() {
   const btn = document.getElementById('exp-save-btn');
-  const exp = { date: document.getElementById('exp-date').value, fund: document.getElementById('exp-fund').value, description: document.getElementById('exp-desc').value, category: document.getElementById('exp-cat').value, amount: Number(document.getElementById('exp-amount').value) || 0, supplier: document.getElementById('exp-supplier').value };
+  const exp = {
+    date: document.getElementById('exp-date').value,
+    fund: document.getElementById('exp-fund').value,
+    description: document.getElementById('exp-desc').value,
+    category: document.getElementById('exp-cat').value,
+    amount: Number(document.getElementById('exp-amount').value) || 0,
+    supplier: document.getElementById('exp-supplier').value,
+  };
   if (!exp.date || !exp.description || !exp.amount) { toast('Please fill in date, description and amount.', true); return; }
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...';
   try {
     const saved = await api('POST', `/api/${year}/expenditure`, exp);
-    expenditure.unshift(saved); closeModal('exp-modal'); renderExpTable(); renderDashboard(); toast('Expenditure saved');
+    const file = document.getElementById('exp-invoice').files[0];
+    if (file) {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`/api/${year}/expenditure/${saved.id}/invoice`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) toast('Expenditure saved but invoice upload failed.', true);
+      else saved.invoice_gcs_path = true;
+    }
+    expenditure.unshift(saved);
+    closeModal('exp-modal');
+    renderExpTable();
+    renderDashboard();
+    toast(file ? 'Expenditure and invoice saved' : 'Expenditure saved');
   } catch (e) { toast('Failed: ' + e.message, true); }
   btn.disabled = false; btn.textContent = 'Save';
 }
@@ -703,6 +732,13 @@ async function savePayment() {
   try { await api('PUT', `/api/${year}/payments/${id}`, data); payments[id] = data; closeModal('pay-modal'); renderCharges(); renderDashboard(); toast('Payment updated'); }
   catch (e) { toast('Failed: ' + e.message, true); }
   btn.disabled = false; btn.textContent = 'Update';
+}
+
+async function viewInvoice(id) {
+  try {
+    const data = await api('GET', `/api/${year}/expenditure/${id}/invoice-url`);
+    window.open(data.url, '_blank');
+  } catch (e) { toast('Failed to load invoice: ' + e.message, true); }
 }
 
 function renderRecon() {
