@@ -9,9 +9,12 @@ class Block(BaseModel):
     address: Optional[str] = None
     company_number: Optional[str] = None
     url: Optional[str] = None
-    bank_account_name: Optional[str] = None
-    bank_sort_code: Optional[str] = None
-    bank_account_number: Optional[str] = None
+    sc_bank_account_name: Optional[str] = None
+    sc_bank_sort_code: Optional[str] = None
+    sc_bank_account_number: Optional[str] = None
+    rf_bank_account_name: Optional[str] = None
+    rf_bank_sort_code: Optional[str] = None
+    rf_bank_account_number: Optional[str] = None
 
 
 class FinancialYear(BaseModel):

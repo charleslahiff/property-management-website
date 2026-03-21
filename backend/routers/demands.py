@@ -54,9 +54,16 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
 
     block_name = block.get("name", "")
     block_address = (block.get("address") or "").replace("\r", "")
-    bank_name = block.get("bank_account_name") or ""
-    sort_code = block.get("bank_sort_code") or ""
-    account_number = block.get("bank_account_number") or ""
+    sc_bank = {
+        "name": block.get("sc_bank_account_name") or "",
+        "sort_code": block.get("sc_bank_sort_code") or "",
+        "account_number": block.get("sc_bank_account_number") or "",
+    }
+    rf_bank = {
+        "name": block.get("rf_bank_account_name") or "",
+        "sort_code": block.get("rf_bank_sort_code") or "",
+        "account_number": block.get("rf_bank_account_number") or "",
+    }
 
     lh_name = lh.get("name", "The Leaseholder") if lh else "The Leaseholder"
     flat_name = flat.get("name", "")
@@ -162,19 +169,32 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
         pdf.ln(3)
 
     # ── Payment details ───────────────────────────────────────────
-    if bank_name or sort_code or account_number:
+    def _print_account(label: str, acct: dict, amount: float):
+        if not any(acct.values()):
+            return
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, f"{label}  ({_fmt_money(amount)})", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", 10)
+        if acct["name"]:
+            pdf.cell(0, 6, f"Account name:     {acct['name']}", new_x="LMARGIN", new_y="NEXT")
+        if acct["sort_code"]:
+            pdf.cell(0, 6, f"Sort code:            {acct['sort_code']}", new_x="LMARGIN", new_y="NEXT")
+        if acct["account_number"]:
+            pdf.cell(0, 6, f"Account number:  {acct['account_number']}", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.cell(0, 5, f"Reference: {flat_name}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+
+    has_payment_details = any(sc_bank.values()) or any(rf_bank.values())
+    if has_payment_details:
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(0, 7, "Payment details", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "", 10)
-        if bank_name:
-            pdf.cell(0, 6, f"Account name:     {bank_name}", new_x="LMARGIN", new_y="NEXT")
-        if sort_code:
-            pdf.cell(0, 6, f"Sort code:            {sort_code}", new_x="LMARGIN", new_y="NEXT")
-        if account_number:
-            pdf.cell(0, 6, f"Account number:  {account_number}", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "I", 9)
-        pdf.cell(0, 6, f"Please use '{flat_name}' as your payment reference.", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(4)
+        pdf.ln(1)
+        if sc_budget > 0:
+            _print_account("Service charge account", sc_bank, sc_amount)
+        if rf_budget > 0:
+            _print_account("Reserve fund account", rf_bank, rf_amount)
+        pdf.ln(1)
 
     # ── Statutory summary ─────────────────────────────────────────
     pdf.ln(3)

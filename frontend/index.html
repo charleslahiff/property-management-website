@@ -587,11 +587,17 @@
       <div class="form-group"><label class="form-label">Company number <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="text" id="block-company-number" placeholder="e.g. 12345678"></div>
       <div class="form-group"><label class="form-label">Website / URL <span style="color:var(--ink-3);font-weight:400">(optional)</span></label><input class="form-input" type="url" id="block-url" placeholder="https://..."></div>
     </div>
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:14px 0 6px">Bank account — printed on demand letters</div>
-    <div class="form-group"><label class="form-label">Account name</label><input class="form-input" type="text" id="block-bank-name" placeholder="e.g. Eagle Court Management"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:14px 0 6px">Service charge account — printed on demand letters</div>
+    <div class="form-group"><label class="form-label">Account name</label><input class="form-input" type="text" id="block-sc-bank-name" placeholder="e.g. Eagle Court SC Account"></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Sort code</label><input class="form-input" type="text" id="block-sort-code" placeholder="00-00-00"></div>
-      <div class="form-group"><label class="form-label">Account number</label><input class="form-input" type="text" id="block-account-number" placeholder="00000000"></div>
+      <div class="form-group"><label class="form-label">Sort code</label><input class="form-input" type="text" id="block-sc-sort-code" placeholder="00-00-00"></div>
+      <div class="form-group"><label class="form-label">Account number</label><input class="form-input" type="text" id="block-sc-account-number" placeholder="00000000"></div>
+    </div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:14px 0 6px">Reserve fund account — printed on demand letters</div>
+    <div class="form-group"><label class="form-label">Account name</label><input class="form-input" type="text" id="block-rf-bank-name" placeholder="e.g. Eagle Court RF Account"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Sort code</label><input class="form-input" type="text" id="block-rf-sort-code" placeholder="00-00-00"></div>
+      <div class="form-group"><label class="form-label">Account number</label><input class="form-input" type="text" id="block-rf-account-number" placeholder="00000000"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('block-modal')">Cancel</button>
@@ -1494,7 +1500,9 @@ function renderSettings() {
 function openBlockModal() {
   document.getElementById('block-modal-title').textContent = 'Add block';
   document.getElementById('block-edit-id').value = '';
-  ['block-name','block-address','block-company-number','block-url','block-bank-name','block-sort-code','block-account-number'].forEach(id => document.getElementById(id).value = '');
+  ['block-name','block-address','block-company-number','block-url',
+   'block-sc-bank-name','block-sc-sort-code','block-sc-account-number',
+   'block-rf-bank-name','block-rf-sort-code','block-rf-account-number'].forEach(id => document.getElementById(id).value = '');
   openModal('block-modal');
 }
 
@@ -1506,9 +1514,12 @@ function editBlock(id) {
   document.getElementById('block-address').value = b.address || '';
   document.getElementById('block-company-number').value = b.company_number || '';
   document.getElementById('block-url').value = b.url || '';
-  document.getElementById('block-bank-name').value = b.bank_account_name || '';
-  document.getElementById('block-sort-code').value = b.bank_sort_code || '';
-  document.getElementById('block-account-number').value = b.bank_account_number || '';
+  document.getElementById('block-sc-bank-name').value = b.sc_bank_account_name || '';
+  document.getElementById('block-sc-sort-code').value = b.sc_bank_sort_code || '';
+  document.getElementById('block-sc-account-number').value = b.sc_bank_account_number || '';
+  document.getElementById('block-rf-bank-name').value = b.rf_bank_account_name || '';
+  document.getElementById('block-rf-sort-code').value = b.rf_bank_sort_code || '';
+  document.getElementById('block-rf-account-number').value = b.rf_bank_account_number || '';
   openModal('block-modal');
 }
 
@@ -1520,9 +1531,12 @@ async function saveBlock() {
     address: document.getElementById('block-address').value.trim() || null,
     company_number: document.getElementById('block-company-number').value.trim() || null,
     url: document.getElementById('block-url').value.trim() || null,
-    bank_account_name: document.getElementById('block-bank-name').value.trim() || null,
-    bank_sort_code: document.getElementById('block-sort-code').value.trim() || null,
-    bank_account_number: document.getElementById('block-account-number').value.trim() || null,
+    sc_bank_account_name: document.getElementById('block-sc-bank-name').value.trim() || null,
+    sc_bank_sort_code: document.getElementById('block-sc-sort-code').value.trim() || null,
+    sc_bank_account_number: document.getElementById('block-sc-account-number').value.trim() || null,
+    rf_bank_account_name: document.getElementById('block-rf-bank-name').value.trim() || null,
+    rf_bank_sort_code: document.getElementById('block-rf-sort-code').value.trim() || null,
+    rf_bank_account_number: document.getElementById('block-rf-account-number').value.trim() || null,
   };
   if (!data.name) { toast('Block name is required.', true); return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
