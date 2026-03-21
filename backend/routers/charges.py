@@ -111,41 +111,6 @@ async def get_invoice_url(year: str, exp_id: str):
     return {"url": signed_url}
 
 
-# ---- Supplier document upload ----
-
-@router.post("/expenditure/{exp_id}/supplier-doc")
-async def upload_supplier_doc(year: str, exp_id: str, file: UploadFile = File(...)):
-    client = storage.Client()
-    bucket = client.bucket(GCS_BUCKET)
-    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "pdf"
-    blob_name = f"{year}/supplier-docs/{exp_id}.{ext}"
-    blob = bucket.blob(blob_name)
-    contents = await file.read()
-    blob.upload_from_string(contents, content_type=file.content_type)
-    gcs_path = f"gs://{GCS_BUCKET}/{blob_name}"
-    _exp_col(year).document(exp_id).update({"supplier_gcs_path": gcs_path})
-    return {"supplier_gcs_path": gcs_path, "expenditure_id": exp_id}
-
-
-@router.get("/expenditure/{exp_id}/supplier-url")
-async def get_supplier_url(year: str, exp_id: str):
-    doc = _exp_col(year).document(exp_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="Expenditure not found")
-    gcs_path = doc.to_dict().get("supplier_gcs_path")
-    if not gcs_path:
-        raise HTTPException(status_code=404, detail="No supplier document attached")
-    blob_name = gcs_path.replace(f"gs://{GCS_BUCKET}/", "")
-    client = storage.Client()
-    blob = client.bucket(GCS_BUCKET).blob(blob_name)
-    signed_url = blob.generate_signed_url(
-        expiration=datetime.timedelta(hours=1),
-        method="GET",
-        version="v4",
-    )
-    return {"url": signed_url}
-
-
 # ---- Payments ----
 
 def _pay_col(year: str):

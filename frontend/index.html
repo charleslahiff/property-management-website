@@ -400,15 +400,9 @@
       <div class="form-group"><label class="form-label">Amount (£)</label><input class="form-input" type="number" step="0.01" id="exp-amount" placeholder="0.00"></div>
     </div>
     <div class="form-group"><label class="form-label">Supplier / reference</label><input class="form-input" type="text" id="exp-supplier" placeholder="e.g. ABC Contractors, Inv #1234"></div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Supplier document (optional)</label>
-        <input class="form-input" type="file" id="exp-supplier-doc" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="padding:6px 12px">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Invoice (optional)</label>
-        <input class="form-input" type="file" id="exp-invoice" accept=".pdf,.jpg,.jpeg,.png" style="padding:6px 12px">
-      </div>
+    <div class="form-group">
+      <label class="form-label">Invoice (optional)</label>
+      <input class="form-input" type="file" id="exp-invoice" accept=".pdf,.jpg,.jpeg,.png" style="padding:6px 12px">
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('exp-modal')">Cancel</button>
@@ -675,14 +669,9 @@ function filterExp(f, el) {
 function renderExpTable() {
   let exps = [...expenditure].sort((a, b) => b.date.localeCompare(a.date));
   if (expFilter !== 'all') exps = exps.filter(e => e.fund === expFilter);
-  const supplierCell = (e) => {
-    if (!e.supplier) return '<span style="color:var(--ink-3)">—</span>';
-    if (e.supplier_gcs_path) return `<a href="#" onclick="viewSupplierDoc('${e.id}');return false;" style="color:var(--accent);text-decoration:underline">${e.supplier}</a>`;
-    return `<span style="color:var(--ink-3)">${e.supplier}</span>`;
-  };
   document.getElementById('exp-table-body').innerHTML = exps.length === 0
     ? '<tr><td colspan="7" class="empty"><p>No expenditure logged yet.</p></td></tr>'
-    : exps.map(e => `<tr><td>${e.date}</td><td>${e.description}${e.invoice_gcs_path ? ` <a href="#" onclick="viewInvoice('${e.id}');return false;" style="color:var(--ink-3);font-size:11px;text-decoration:none" title="View invoice">📎</a>` : ''}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td>${supplierCell(e)}</td><td class="mono">${fmt(e.amount)}</td><td style="text-align:right"><button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`).join('');
+    : exps.map(e => `<tr><td>${e.date}</td><td>${e.description}</td><td><span class="badge ${e.fund}">${e.fund.toUpperCase()}</span></td><td>${e.category || '—'}</td><td style="color:var(--ink-3)">${e.supplier || '—'}</td><td class="mono">${fmt(e.amount)}</td><td style="display:flex;gap:6px;justify-content:flex-end">${e.invoice_gcs_path ? `<a href="#" onclick="viewInvoice('${e.id}');return false;" class="btn small">Invoice</a>` : ''}<button class="btn small danger" onclick="deleteExp('${e.id}')">Delete</button></td></tr>`).join('');
 }
 
 function updateExpCats() {
@@ -712,14 +701,6 @@ async function saveExpenditure() {
       const res = await fetch(`/api/${year}/expenditure/${saved.id}/invoice`, { method: 'POST', body: form });
       if (!res.ok) toast('Expenditure saved but invoice upload failed.', true);
       else saved.invoice_gcs_path = true;
-    }
-    const supplierDoc = document.getElementById('exp-supplier-doc').files[0];
-    if (supplierDoc) {
-      const form = new FormData();
-      form.append('file', supplierDoc);
-      const res = await fetch(`/api/${year}/expenditure/${saved.id}/supplier-doc`, { method: 'POST', body: form });
-      if (!res.ok) toast('Expenditure saved but supplier document upload failed.', true);
-      else saved.supplier_gcs_path = true;
     }
     expenditure.unshift(saved);
     closeModal('exp-modal');
@@ -851,12 +832,6 @@ async function viewInvoice(id) {
   } catch (e) { toast('Failed to load invoice: ' + e.message, true); }
 }
 
-async function viewSupplierDoc(id) {
-  try {
-    const data = await api('GET', `/api/${year}/expenditure/${id}/supplier-url`);
-    window.open(data.url, '_blank');
-  } catch (e) { toast('Failed to load supplier document: ' + e.message, true); }
-}
 
 function renderRecon() {
   const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
@@ -881,7 +856,7 @@ function renderRecon() {
 }
 
 function openModal(id) {
-  if (id === 'exp-modal') { document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; document.getElementById('exp-invoice').value=''; document.getElementById('exp-supplier-doc').value=''; updateExpCats(); }
+  if (id === 'exp-modal') { document.getElementById('exp-date').value = new Date().toISOString().split('T')[0]; document.getElementById('exp-desc').value=''; document.getElementById('exp-amount').value=''; document.getElementById('exp-supplier').value=''; document.getElementById('exp-invoice').value=''; updateExpCats(); }
   document.getElementById(id).classList.add('open');
 }
 
