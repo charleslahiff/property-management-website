@@ -216,6 +216,7 @@
       <div class="fund-heading"><div class="fund-name">Service charge fund</div><span class="fund-pill sc">SC</span></div>
       <div class="fund-row"><span class="label">Annual budget</span><span class="value mono" id="fc-sc-budget">£0</span></div>
       <div class="fund-row"><span class="label">Total collected</span><span class="value mono positive" id="fc-sc-collected">£0</span></div>
+      <div class="fund-row"><span class="label">Outstanding</span><span class="value mono" id="fc-sc-outstanding">£0</span></div>
       <div class="fund-row"><span class="label">Total spent</span><span class="value mono" id="fc-sc-spent">£0</span></div>
       <div class="fund-row"><span class="label">Remaining</span><span class="value mono" id="fc-sc-remaining">£0</span></div>
       <div class="progress-wrap" style="margin-top:14px">
@@ -537,6 +538,8 @@ function renderDashboard() {
   document.getElementById('stat-rf-balance').textContent = fmtK(rfColl - rfSpent);
   document.getElementById('fc-sc-budget').textContent = fmt(scB);
   document.getElementById('fc-sc-collected').textContent = fmt(scColl);
+  const outEl = document.getElementById('fc-sc-outstanding');
+  outEl.textContent = fmt(scB - scColl); outEl.className = 'value mono ' + (scB - scColl > 0 ? 'negative' : 'positive');
   document.getElementById('fc-sc-spent').textContent = fmt(scSpent);
   const rem = scColl - scSpent;
   const remEl = document.getElementById('fc-sc-remaining');
@@ -570,17 +573,20 @@ function renderCharts() {
       const date = fund === 'sc' ? p.sc_received_date : p.rf_received_date;
       if (date) {
         const share = Number(fund === 'sc' ? lh.sc_share : lh.rf_share) || 0;
-        incomeEvents.push({ date, amount: budgetTotal * share / 100 });
+        incomeEvents.push({ date, amount: budgetTotal * share / 100, label: lh.flat + ' — ' + lh.name });
       }
     });
-    const spendEvents = expenditure.filter(e => e.fund === fund).map(e => ({ date: e.date, amount: Number(e.amount) }));
+    const spendEvents = expenditure.filter(e => e.fund === fund).map(e => ({ date: e.date, amount: Number(e.amount), label: e.description }));
     const allDates = [...new Set([...incomeEvents.map(e => e.date), ...spendEvents.map(e => e.date)])].sort();
     let cumIncome = 0, cumSpend = 0;
     const balanceData = [];
     allDates.forEach(date => {
-      cumIncome += incomeEvents.filter(e => e.date === date).reduce((a, e) => a + e.amount, 0);
-      cumSpend += spendEvents.filter(e => e.date === date).reduce((a, e) => a + e.amount, 0);
-      balanceData.push({ x: date, y: Math.round((cumIncome - cumSpend) * 100) / 100 });
+      const dayIncome = incomeEvents.filter(e => e.date === date);
+      const daySpend = spendEvents.filter(e => e.date === date);
+      cumIncome += dayIncome.reduce((a, e) => a + e.amount, 0);
+      cumSpend += daySpend.reduce((a, e) => a + e.amount, 0);
+      const events = [...dayIncome.map(e => '↑ ' + e.label + ' (' + fmt(e.amount) + ')'), ...daySpend.map(e => '↓ ' + e.label + ' (' + fmt(e.amount) + ')')];
+      balanceData.push({ x: date, y: Math.round((cumIncome - cumSpend) * 100) / 100, events });
     });
     if (_charts[fund]) { _charts[fund].destroy(); delete _charts[fund]; }
     if (allDates.length === 0) return;
@@ -601,7 +607,7 @@ function renderCharts() {
         },
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: ctx => 'Balance: ' + fmt(ctx.parsed.y) } }
+          tooltip: { callbacks: { label: ctx => 'Balance: ' + fmt(ctx.parsed.y), afterBody: ctx => ctx[0]?.raw?.events || [] } }
         }
       }
     });
