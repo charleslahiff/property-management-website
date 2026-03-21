@@ -11,6 +11,8 @@ class Leaseholder(BaseModel):
     sc_share: float = Field(ge=0, le=100)
     rf_share: float = Field(ge=0, le=100)
     share_of_freehold: bool = False
+    effective_date: Optional[str] = None
+    expiry_date: Optional[str] = None
 
 
 class Budget(BaseModel):

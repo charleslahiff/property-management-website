@@ -48,6 +48,8 @@ frontend/
 | `sc_share` | float | % of SC budget (0–100) |
 | `rf_share` | float | % of RF budget (0–100) |
 | `share_of_freehold` | bool | default false |
+| `effective_date` | string? | ISO date — when the lease/tenure began |
+| `expiry_date` | string? | ISO date — when the lease/tenure ends |
 
 ### Budget _(stored as a map on the year document)_
 | Field | Type | Notes |

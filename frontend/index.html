@@ -431,6 +431,10 @@
       <div class="form-group"><label class="form-label">SC share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="lh-sc-share" placeholder="e.g. 8.33"></div>
       <div class="form-group"><label class="form-label">RF share (%)</label><input class="form-input" type="number" step="0.01" min="0" max="100" id="lh-rf-share" placeholder="e.g. 8.33"></div>
     </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Effective date</label><input class="form-input" type="date" id="lh-effective-date"></div>
+      <div class="form-group"><label class="form-label">Expiry date</label><input class="form-input" type="date" id="lh-expiry-date"></div>
+    </div>
     <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:4px">
       <input type="checkbox" id="lh-sof" style="width:16px;height:16px;cursor:pointer">
       <label class="form-label" style="margin:0;cursor:pointer" for="lh-sof">Share of freehold</label>
@@ -737,7 +741,7 @@ function renderLHTable() {
 
 function openLHModal() {
   document.getElementById('lh-modal-title').textContent = 'Add leaseholder';
-  ['lh-flat','lh-name','lh-email','lh-sc-share','lh-rf-share','lh-edit-id'].forEach(id => document.getElementById(id).value = '');
+  ['lh-flat','lh-name','lh-email','lh-sc-share','lh-rf-share','lh-effective-date','lh-expiry-date','lh-edit-id'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('lh-sof').checked = false;
   openModal('lh-modal');
 }
@@ -751,6 +755,8 @@ function editLH(id) {
   document.getElementById('lh-sc-share').value = lh.sc_share;
   document.getElementById('lh-rf-share').value = lh.rf_share;
   document.getElementById('lh-sof').checked = !!lh.share_of_freehold;
+  document.getElementById('lh-effective-date').value = lh.effective_date || '';
+  document.getElementById('lh-expiry-date').value = lh.expiry_date || '';
   document.getElementById('lh-edit-id').value = lh.id;
   openModal('lh-modal');
 }
@@ -758,7 +764,7 @@ function editLH(id) {
 async function saveLeaseholder() {
   const btn = document.getElementById('lh-save-btn');
   const editId = document.getElementById('lh-edit-id').value;
-  const lh = { flat: document.getElementById('lh-flat').value, name: document.getElementById('lh-name').value, email: document.getElementById('lh-email').value, sc_share: Number(document.getElementById('lh-sc-share').value) || 0, rf_share: Number(document.getElementById('lh-rf-share').value) || 0, share_of_freehold: document.getElementById('lh-sof').checked };
+  const lh = { flat: document.getElementById('lh-flat').value, name: document.getElementById('lh-name').value, email: document.getElementById('lh-email').value, sc_share: Number(document.getElementById('lh-sc-share').value) || 0, rf_share: Number(document.getElementById('lh-rf-share').value) || 0, share_of_freehold: document.getElementById('lh-sof').checked, effective_date: document.getElementById('lh-effective-date').value || null, expiry_date: document.getElementById('lh-expiry-date').value || null };
   if (!lh.flat || !lh.name) { toast('Please enter flat and name.', true); return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
