@@ -36,14 +36,61 @@ frontend/
   src/              # (unused)
 ```
 
+## Data models
+
+### Leaseholder
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | UUID, set on create |
+| `flat` | string | e.g. "Flat 3" |
+| `name` | string | |
+| `email` | string? | |
+| `sc_share` | float | % of SC budget (0–100) |
+| `rf_share` | float | % of RF budget (0–100) |
+| `share_of_freehold` | bool | default false |
+
+### Budget _(stored as a map on the year document)_
+| Field | Type | Notes |
+| --- | --- | --- |
+| `sc` | float | Annual SC budget (£) |
+| `rf` | float | Annual RF contribution target (£) |
+| `sc_notes` | string? | |
+| `rf_notes` | string? | |
+| `billing_freq` | string | `"annual"` \| `"quarterly"` |
+| `due_date` | string? | ISO date |
+| `sc_categories` | string[] | Expenditure categories for SC |
+| `rf_categories` | string[] | Expenditure categories for RF |
+
+### Expenditure
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | UUID, set on create |
+| `date` | string | ISO date |
+| `fund` | string | `"sc"` \| `"rf"` |
+| `description` | string | |
+| `category` | string? | Must match a budget category |
+| `amount` | float | Must be > 0 |
+| `supplier` | string? | Name or reference; renders as clickable link in table if a URL |
+| `invoice_gcs_path` | string? | `gs://bucket/year/invoices/{id}.ext` — signed URL generated on demand |
+
+### Payment _(keyed by leaseholder ID)_
+| Field | Type | Notes |
+| --- | --- | --- |
+| `sc_status` | string | `"unpaid"` \| `"partial"` \| `"paid"` |
+| `rf_status` | string | `"unpaid"` \| `"partial"` \| `"paid"` |
+| `sc_received_date` | string? | ISO date payment was received |
+| `rf_received_date` | string? | ISO date payment was received |
+
+> If the budget for a fund is £0, its status is treated as `"paid"` automatically in the UI (see `effSC`/`effRF` in `renderCharges`).
+
 ## Firestore structure
 
 ```
 years/{year}/
-  budget            # { sc, rf, sc_notes, rf_notes, billing_freq, due_date, sc_categories, rf_categories }
-  leaseholders/{id} # { flat, name, email, sc_share, rf_share, share_of_freehold }
-  expenditure/{id}  # { date, fund, description, category, amount, supplier, invoice_gcs_path }
-  payments/{lh_id}  # { sc_status, rf_status, sc_received_date, rf_received_date }
+  budget            # Budget map (see above)
+  leaseholders/{id} # Leaseholder documents
+  expenditure/{id}  # Expenditure documents
+  payments/{lh_id}  # Payment documents, keyed by leaseholder ID
 ```
 
 ## GCS layout
