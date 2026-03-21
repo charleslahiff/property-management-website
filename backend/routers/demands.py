@@ -172,7 +172,6 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     budget = year_data.get("budget", {})
     year_label = year_data.get("label", year_id)
     due_date_raw = budget.get("due_date") or ""
-    billing_freq = budget.get("billing_freq", "annual")
 
     block_name = block.get("name", "")
     building_name = block.get("building_name") or ""
@@ -200,8 +199,7 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     rf_amount = rf_budget * rf_share / 100
     total = sc_amount + rf_amount
 
-    today = datetime.date.today()
-    invoice_date_str = _fmt_date(today)
+    today_str = _fmt_date(datetime.date.today())
 
     due_display = ""
     if due_date_raw:
@@ -210,107 +208,92 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
         except ValueError:
             due_display = due_date_raw
 
-    # Year date range for description e.g. "01/04/25 to 31/03/26"
-    fy = year_data
     try:
-        fy_start = datetime.date.fromisoformat(fy.get("start_date", ""))
-        fy_end = datetime.date.fromisoformat(fy.get("end_date", ""))
+        fy_start = datetime.date.fromisoformat(year_data.get("start_date", ""))
+        fy_end = datetime.date.fromisoformat(year_data.get("end_date", ""))
         date_range = f"{fy_start.strftime('%d/%m/%y')} to {fy_end.strftime('%d/%m/%y')}"
     except (ValueError, TypeError):
         date_range = year_label
 
-    # Full address as a single inline string for description line
-    address_inline = ", ".join(address_lines) if address_lines else ""
-
     # ── Build PDF ─────────────────────────────────────────────────
     pdf = FPDF()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.set_margins(25, 22, 25)
+    pdf.set_auto_page_break(auto=True, margin=22)
     pdf.add_page()
 
-    # ── Centred block header ──────────────────────────────────────
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 6, block_name, align="C", new_x="LMARGIN", new_y="NEXT")
-    for line in address_lines:
-        pdf.cell(0, 6, line, align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(8)
+    # ── Block name (left) + date (right) ─────────────────────────
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(120, 8, block_name)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(40, 8, today_str, align="R", new_x="LMARGIN", new_y="NEXT")
 
-    # ── Leaseholder address (left) + dates (right) ────────────────
-    flat_addr_lines = [lh_name]
-    flat_addr_lines.append(f"{flat_name} {building_name}" if building_name else flat_name)
-    flat_addr_lines.extend(address_lines)
+    if address_lines:
+        pdf.set_font("Helvetica", "", 9)
+        for line in address_lines:
+            pdf.cell(0, 5, line, new_x="LMARGIN", new_y="NEXT")
 
-    date_lines = [f"Invoice date: {invoice_date_str}"]
+    # Separator
+    pdf.ln(3)
+    pdf.set_draw_color(180, 180, 180)
+    pdf.set_line_width(0.3)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.ln(6)
+
+    # ── Addressee ─────────────────────────────────────────────────
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, lh_name, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    flat_line = f"{flat_name} {building_name}" if building_name else flat_name
+    pdf.cell(0, 6, flat_line, new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(6)
+
+    # ── Subject ───────────────────────────────────────────────────
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, f"SERVICE CHARGE DEMAND - {year_label}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # ── Charge table ──────────────────────────────────────────────
+    col = [95, 30, 35]  # description, share, amount
+    pdf.set_fill_color(240, 240, 238)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(col[0], 8, "Charge", border=1, fill=True)
+    pdf.cell(col[1], 8, "Share", border=1, fill=True, align="C")
+    pdf.cell(col[2], 8, "Amount", border=1, fill=True, align="R")
+    pdf.ln()
+
+    pdf.set_font("Helvetica", "", 10)
+    if sc_budget > 0:
+        pdf.cell(col[0], 8, f"Service charge ({date_range})", border=1)
+        pdf.cell(col[1], 8, f"{sc_share:g}%", border=1, align="C")
+        pdf.cell(col[2], 8, _fmt_money(sc_amount), border=1, align="R")
+        pdf.ln()
+    if rf_budget > 0:
+        pdf.cell(col[0], 8, f"Reserve fund contribution ({date_range})", border=1)
+        pdf.cell(col[1], 8, f"{rf_share:g}%", border=1, align="C")
+        pdf.cell(col[2], 8, _fmt_money(rf_amount), border=1, align="R")
+        pdf.ln()
+
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_fill_color(240, 240, 238)
+    pdf.cell(col[0] + col[1], 8, "Total payable", border=1, fill=True)
+    pdf.cell(col[2], 8, _fmt_money(total), border=1, fill=True, align="R")
+    pdf.ln()
+    pdf.ln(6)
+
+    # ── Due date ──────────────────────────────────────────────────
     if due_display:
-        date_lines.append(f"Payment due date: {due_display}")
-
-    left_w = 110
-    right_w = 60
-    n_rows = max(len(flat_addr_lines), len(date_lines))
-
-    pdf.set_font("Helvetica", "", 11)
-    for i in range(n_rows):
-        addr = flat_addr_lines[i] if i < len(flat_addr_lines) else ""
-        date = date_lines[i] if i < len(date_lines) else ""
-        pdf.cell(left_w, 6, addr)
-        pdf.cell(right_w, 6, date, align="R", new_x="LMARGIN", new_y="NEXT")
-
-    pdf.ln(8)
-
-    # ── Title ─────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "", 12)
-    pdf.cell(0, 8, "Service Charge Demand", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
-
-    # ── Description / Charge table ────────────────────────────────
-    desc_w = 130
-    charge_w = 40
-
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(desc_w, 6, "Description:", new_x="RIGHT")
-    pdf.cell(charge_w, 6, "Charge", align="R", new_x="LMARGIN", new_y="NEXT")
-
-    # Flat address line (description)
-    if building_name:
-        desc_addr = f"{flat_name} {building_name}, {address_inline}" if address_inline else f"{flat_name} {building_name}"
-    else:
-        desc_addr = f"{flat_name}, {address_inline}" if address_inline else flat_name
-
-    if sc_budget > 0 and rf_budget > 0:
-        # Two line items
-        pdf.cell(desc_w, 6, desc_addr, new_x="RIGHT")
-        pdf.cell(charge_w, 6, "", align="R", new_x="LMARGIN", new_y="NEXT")
-
-        pdf.cell(desc_w, 6, f"Service charge for {date_range}", new_x="RIGHT")
-        pdf.cell(charge_w, 6, _fmt_money(sc_amount), align="R", new_x="LMARGIN", new_y="NEXT")
-
-        pdf.cell(desc_w, 6, f"Reserve fund contribution for {date_range}", new_x="RIGHT")
-        pdf.cell(charge_w, 6, _fmt_money(rf_amount), align="R", new_x="LMARGIN", new_y="NEXT")
-    elif sc_budget > 0:
-        pdf.cell(desc_w, 6, desc_addr, new_x="RIGHT")
-        pdf.cell(charge_w, 6, _fmt_money(sc_amount), align="R", new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(desc_w, 6, f"Service charge for {date_range}", new_x="LMARGIN", new_y="NEXT")
-    elif rf_budget > 0:
-        pdf.cell(desc_w, 6, desc_addr, new_x="RIGHT")
-        pdf.cell(charge_w, 6, _fmt_money(rf_amount), align="R", new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(desc_w, 6, f"Reserve fund contribution for {date_range}", new_x="LMARGIN", new_y="NEXT")
-
-    pdf.ln(4)
-
-    # Invoice total (right-aligned, bold)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 6, "Invoice Total", align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 6, _fmt_money(total), align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(8)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, f"Payment due: {due_display}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
 
     # ── BACS payment section ──────────────────────────────────────
-    pdf.set_font("Helvetica", "", 11)
-
-    def _print_bacs(bank: dict, fund: str, amount: float):
+    def _print_bacs(label: str, bank: dict, fund: str):
         if not any(bank.values()):
             return
         ref = _make_ref(fund, flat_name, lh_name)
-        pdf.cell(0, 6, "Please make BACS payment to:", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, label, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", 10)
         if bank["name"]:
             pdf.cell(0, 6, f"Name: {bank['name']}", new_x="LMARGIN", new_y="NEXT")
         if bank["sort_code"]:
@@ -318,18 +301,19 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
         if bank["account"]:
             pdf.cell(0, 6, f"Account Number: {bank['account']}", new_x="LMARGIN", new_y="NEXT")
         pdf.cell(0, 6, f"Reference: {ref}", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(4)
+        pdf.ln(3)
 
     if sc_budget > 0:
-        _print_bacs(sc_bank, "sc", sc_amount)
+        _print_bacs("Please make BACS payment to (service charge):", sc_bank, "sc")
     if rf_budget > 0:
-        _print_bacs(rf_bank, "rf", rf_amount)
+        _print_bacs("Please make BACS payment to (reserve fund):", rf_bank, "rf")
 
     # ── Statutory Information (s.47/48 and s.42) ──────────────────
-    pdf.set_font("Helvetica", "B", 11)
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
     pdf.cell(0, 6, "Statutory Information", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
-    pdf.set_font("Helvetica", "", 11)
+    pdf.set_font("Helvetica", "", 10)
     pdf.set_x(pdf.l_margin)
     pdf.multi_cell(
         0, 6,
@@ -353,13 +337,15 @@ def _build_pdf(block: dict, year_id: str, year_data: dict, flat: dict, lh: dict 
     # ── Page 2: Full prescribed statutory summary ─────────────────
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 6, "Service Charges - Summary of Tenants' Rights and Obligations", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(pdf.l_margin)
+    pdf.multi_cell(0, 6, "Service Charges - Summary of Tenants' Rights and Obligations")
     pdf.ln(2)
 
     for number, text in _STATUTORY_POINTS:
-        pdf.set_font("Helvetica", "", 11)
+        pdf.set_font("Helvetica", "", 10)
         pdf.set_x(pdf.l_margin)
         pdf.multi_cell(0, 6, f"{number} {text}")
+        pdf.ln(1)
 
     return bytes(pdf.output())
 
