@@ -472,6 +472,7 @@ function toast(msg, isError = false) {
 
 function fmt(n) { return '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtK(n) { n = Number(n || 0); if (Math.abs(n) >= 1000) return '£' + (n / 1000).toFixed(1) + 'k'; return fmt(n); }
+function sortByFlat(arr) { return [...arr].sort((a, b) => { const n = s => { const m = s.flat.match(/\d+/); return m ? parseInt(m[0]) : Infinity; }; const d = n(a) - n(b); return d !== 0 ? d : a.flat.localeCompare(b.flat); }); }
 
 async function loadAll() {
   try {
@@ -653,8 +654,8 @@ async function deleteExp(id) {
 function renderLHTable() {
   const scB = Number(budget.sc || 0), rfB = Number(budget.rf || 0);
   document.getElementById('lh-table-body').innerHTML = leaseholders.length === 0
-    ? '<tr><td colspan="8" class="empty"><p>No leaseholders added yet.</p></td></tr>'
-    : leaseholders.map(lh => `<tr><td>${lh.flat}</td><td>${lh.name}</td><td style="color:var(--ink-3)">${lh.email || '—'}</td><td class="mono">${Number(lh.sc_share || 0).toFixed(2)}%</td><td class="mono">${Number(lh.rf_share || 0).toFixed(2)}%</td><td class="mono">${fmt(scB * (Number(lh.sc_share) || 0) / 100)}</td><td class="mono">${fmt(rfB * (Number(lh.rf_share) || 0) / 100)}</td><td>${lh.share_of_freehold ? '<span class="badge paid">Yes</span>' : '<span style="color:var(--ink-3)">—</span>'}</td><td style="display:flex;gap:6px"><button class="btn small" onclick="editLH('${lh.id}')">Edit</button><button class="btn small danger" onclick="deleteLH('${lh.id}')">Delete</button></td></tr>`).join('');
+    ? '<tr><td colspan="9" class="empty"><p>No leaseholders added yet.</p></td></tr>'
+    : sortByFlat(leaseholders).map(lh => `<tr><td>${lh.flat}</td><td>${lh.name}</td><td style="color:var(--ink-3)">${lh.email || '—'}</td><td class="mono">${Number(lh.sc_share || 0).toFixed(2)}%</td><td class="mono">${Number(lh.rf_share || 0).toFixed(2)}%</td><td class="mono">${fmt(scB * (Number(lh.sc_share) || 0) / 100)}</td><td class="mono">${fmt(rfB * (Number(lh.rf_share) || 0) / 100)}</td><td>${lh.share_of_freehold ? '<span class="badge paid">Yes</span>' : '<span style="color:var(--ink-3)">—</span>'}</td><td style="display:flex;gap:6px"><button class="btn small" onclick="editLH('${lh.id}')">Edit</button><button class="btn small danger" onclick="deleteLH('${lh.id}')">Delete</button></td></tr>`).join('');
   const total = leaseholders.reduce((a, lh) => a + Number(lh.sc_share || 0), 0);
   document.getElementById('share-total').textContent = total.toFixed(2) + '%';
   document.getElementById('share-sum-display').className = 'share-sum ' + (Math.abs(total - 100) < 0.1 ? 'valid' : 'invalid');
@@ -718,6 +719,7 @@ function renderCharges() {
   let lhs = leaseholders;
   if (chargeFilter === 'unpaid') lhs = lhs.filter(lh => { const p = payments[lh.id] || {}; return effSC(p) !== 'paid' || effRF(p) !== 'paid'; });
   if (chargeFilter === 'paid') lhs = lhs.filter(lh => { const p = payments[lh.id] || {}; return effSC(p) === 'paid' && effRF(p) === 'paid'; });
+  lhs = sortByFlat(lhs);
   document.getElementById('charges-table-body').innerHTML = lhs.length === 0
     ? '<tr><td colspan="10" class="empty"><p>No charges to display.</p></td></tr>'
     : lhs.map(lh => { const sc = scB * (Number(lh.sc_share) || 0) / 100, rf = rfB * (Number(lh.rf_share) || 0) / 100, p = payments[lh.id] || {}, scSt = effSC(p), rfSt = effRF(p); return `<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(rf)}</td><td class="mono" style="font-weight:500">${fmt(sc+rf)}</td><td><span class="badge ${scSt}">${scSt}</span></td><td><span class="badge ${rfSt}">${rfSt}</span></td><td>${p.sc_received_date ? `<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${lh.id}')">${p.sc_received_date}</span>` : `<button class="btn small" onclick="markReceived('${lh.id}','sc')">Mark</button>`}</td><td>${p.rf_received_date ? `<span class="mono" style="font-size:11px;color:var(--accent);cursor:pointer" onclick="openPayModal('${lh.id}')">${p.rf_received_date}</span>` : `<button class="btn small" onclick="markReceived('${lh.id}','rf')">Mark</button>`}</td><td><button class="btn small" onclick="openPayModal('${lh.id}')">Update</button></td></tr>`; }).join('');
@@ -783,7 +785,7 @@ function renderRecon() {
   document.getElementById('r-sc-cats').innerHTML = (budget.sc_categories||[]).map(cat=>{const s=expenditure.filter(e=>e.fund==='sc'&&e.category===cat).reduce((a,e)=>a+Number(e.amount),0);return`<div class="recon-line"><span>${cat}</span><span class="mono">${fmt(s)}</span></div>`;}).join('')||'<div class="recon-line" style="color:var(--ink-3)">No categories set</div>';
   document.getElementById('r-lh-table').innerHTML = leaseholders.length===0
     ?'<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:20px">No leaseholders added.</td></tr>'
-    :leaseholders.map(lh=>{const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100,scP=p.sc_status==='paid'?sc:p.sc_status==='partial'?sc*0.5:0,rfP=p.rf_status==='paid'?rf:p.rf_status==='partial'?rf*0.5:0,out=(sc-scP)+(rf-rfP);return`<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;}).join('');
+    :sortByFlat(leaseholders).map(lh=>{const p=payments[lh.id]||{},sc=scB*(Number(lh.sc_share)||0)/100,rf=rfB*(Number(lh.rf_share)||0)/100,scP=p.sc_status==='paid'?sc:p.sc_status==='partial'?sc*0.5:0,rfP=p.rf_status==='paid'?rf:p.rf_status==='partial'?rf*0.5:0,out=(sc-scP)+(rf-rfP);return`<tr><td>${lh.flat}</td><td>${lh.name}</td><td class="mono">${fmt(sc)}</td><td class="mono">${fmt(scP)}</td><td class="mono">${fmt(rf)}</td><td class="mono">${fmt(rfP)}</td><td class="mono" style="color:${out>0?'var(--danger)':'var(--accent)'}">${fmt(out)}</td></tr>`;}).join('');
 }
 
 function openModal(id) {
