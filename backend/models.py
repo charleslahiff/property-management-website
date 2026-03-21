@@ -32,6 +32,7 @@ class Expenditure(BaseModel):
     category: Optional[str] = None
     amount: float = Field(gt=0)
     supplier: Optional[str] = None
+    supplier_gcs_path: Optional[str] = None
     invoice_url: Optional[str] = None  # GCS signed URL stored after upload
 
 
