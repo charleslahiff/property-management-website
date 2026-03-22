@@ -14,6 +14,53 @@ def _year_doc(block_id: str, year_id: str):
             .collection("years").document(year_id))
 
 
+# ---- Prior year closing balance ----
+
+@router.get("/prior_closing")
+async def get_prior_closing(block_id: str, year_id: str):
+    """Return the closing balance of the year immediately before year_id.
+
+    closing = opening_balance + income - expenditure for that year.
+    Returns {sc: 0, rf: 0} if there is no prior year.
+    """
+    block_ref = get_db().collection("blocks").document(block_id)
+
+    # Find the highest year_id strictly less than the current one
+    year_docs = block_ref.collection("years").stream()
+    prior_id = None
+    for yd in year_docs:
+        if yd.id < year_id:
+            if prior_id is None or yd.id > prior_id:
+                prior_id = yd.id
+
+    if prior_id is None:
+        return {"sc": 0.0, "rf": 0.0}
+
+    prior_ref = block_ref.collection("years").document(prior_id)
+    prior_data = (prior_ref.get().to_dict() or {})
+    budget = prior_data.get("budget", {})
+    sc = float(budget.get("sc_opening_balance", 0))
+    rf = float(budget.get("rf_opening_balance", 0))
+
+    for inc in prior_ref.collection("income").stream():
+        d = inc.to_dict()
+        amt = float(d.get("amount", 0))
+        if d.get("fund") == "sc":
+            sc += amt
+        elif d.get("fund") == "rf":
+            rf += amt
+
+    for exp in prior_ref.collection("expenditure").stream():
+        d = exp.to_dict()
+        amt = float(d.get("amount", 0))
+        if d.get("fund") == "sc":
+            sc -= amt
+        elif d.get("fund") == "rf":
+            rf -= amt
+
+    return {"sc": round(sc, 2), "rf": round(rf, 2)}
+
+
 # ---- Budget ----
 
 @router.get("/budget")

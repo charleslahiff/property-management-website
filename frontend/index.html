@@ -676,6 +676,7 @@ let payments = {};
 let income = [];
 let arrears = [];
 let openingArrears = {};
+let priorClosing = {sc: 0, rf: 0};
 let expFilter = 'all';
 let chargeFilter = 'all';
 
@@ -768,11 +769,12 @@ async function reloadArrears() {
 }
 
 async function loadYear() {
-  [budget, expenditure, payments, income] = await Promise.all([
+  [budget, expenditure, payments, income, priorClosing] = await Promise.all([
     api('GET', `${yearBase()}/budget`),
     api('GET', `${yearBase()}/expenditure`),
     api('GET', `${yearBase()}/payments`),
     api('GET', `${yearBase()}/income`),
+    api('GET', `${yearBase()}/prior_closing`),
   ]);
   derivePayments();
   renderDashboard();
@@ -828,7 +830,7 @@ async function changeYear(y) {
 async function changeBlock(blockId) {
   flats = []; leaseholders = []; years = []; year = null;
   budget = { sc: 0, rf: 0, sc_notes: '', rf_notes: '', billing_freq: 'annual', due_date: '', sc_categories: ['Insurance','Repairs','Cleaning','Utilities','Management','Other'], rf_categories: ['Major works','Contingency','Other'] };
-  expenditure = []; income = []; payments = {}; arrears = []; openingArrears = {};
+  expenditure = []; income = []; payments = {}; arrears = []; openingArrears = {}; priorClosing = {sc: 0, rf: 0};
   await loadBlock(blockId);
   showPage('dashboard');
 }
@@ -890,7 +892,8 @@ function renderCharts() {
         return { date: t.date, amount: Number(t.amount), label: t.description || t.type };
       });
     const spendEvents = expenditure.filter(e => e.fund === fund && (e.payment_date || e.date)).map(e => ({ date: e.payment_date || e.date, amount: Number(e.amount), label: e.description }));
-    const openingBalance = fund === 'sc' ? Number(budget.sc_opening_balance || 0) : Number(budget.rf_opening_balance || 0);
+    const manualOB = fund === 'sc' ? Number(budget.sc_opening_balance || 0) : Number(budget.rf_opening_balance || 0);
+    const openingBalance = manualOB || (fund === 'sc' ? Number(priorClosing.sc || 0) : Number(priorClosing.rf || 0));
     const allDates = [...new Set([...incomeEvents.map(e => e.date), ...spendEvents.map(e => e.date)])].sort();
     let cumIncome = 0, cumSpend = 0;
     const balanceData = [];
@@ -1466,7 +1469,8 @@ async function viewInvoice(id) {
 
 function renderRecon() {
   const scB = Number(budget.sc||0), rfB = Number(budget.rf||0);
-  const scOB = Number(budget.sc_opening_balance||0), rfOB = Number(budget.rf_opening_balance||0);
+  const scOB = Number(budget.sc_opening_balance||0) || Number(priorClosing.sc||0);
+  const rfOB = Number(budget.rf_opening_balance||0) || Number(priorClosing.rf||0);
   const scSpent = expenditure.filter(e=>e.fund==='sc').reduce((a,e)=>a+Number(e.amount),0);
   const rfSpent = expenditure.filter(e=>e.fund==='rf').reduce((a,e)=>a+Number(e.amount),0);
   const scC = income.filter(t=>t.fund==='sc').reduce((s,t)=>s+Number(t.amount),0);
